@@ -1,0 +1,464 @@
+---
+name: bootstrap
+description: "Bootstrap a new project from the Soft Factory template by gathering project identity, tech stack, and cross-cutting concerns, then scaffolding the codebase and seeding architectural artifacts."
+tools:
+  - search/codebase
+  - search/fileSearch
+  - search/textSearch
+  - read/readFile
+  - edit/createDirectory
+  - edit/createFile
+  - edit/editFiles
+  - execute/runInTerminal
+  - execute/getTerminalOutput
+  - web/fetch
+  - todo
+user-invocable: true
+disable-model-invocation: true
+target: vscode
+handoffs:
+  - label: Start First Issue
+    agent: research
+    prompt: Research and classify the first GitHub issue for this newly bootstrapped project.
+    send: false
+---
+
+<instructions>
+You MUST check whether the project has already been bootstrapped before proceeding.
+You MUST refuse to run if the project is already bootstrapped and explain why.
+You MUST read all existing documentation under docs/ and project/ before making changes.
+You MUST read the ADR template at project/architecture/ADR/ADR-0001-template.md before creating any ADR.
+You MUST read the core-component template at project/architecture/core-components/CORE-COMPONENT-0001-template.md before creating any core-component.
+You MUST gather the project name, description, and goal from the user interactively.
+You MUST ask the user to choose a tech stack including language, framework, package manager, and test runner.
+You MUST ask the user to identify cross-cutting concerns such as logging, error handling, authentication, or observability.
+You MUST ask the user to confirm or customize development standards covering coding conventions, commit standards, and testing practices.
+You MUST create a core-component for development standards using language-specific defaults from DEV_STANDARDS.
+You MUST scaffold the project using the appropriate init command for the chosen tech stack.
+You MUST create an ADR for the tech stack decision using the ADR template.
+You MUST create a core-component file for each declared cross-cutting concern using the core-component template.
+You MUST update project/architecture/ADR/DECISION-LOG.md with all new ADRs and core-components.
+You MUST update README.md with the project name, description, and goal replacing the template content.
+You MUST update docs/README.md with project-specific context.
+You MUST update AGENTS.md to register the bootstrap in the AGENTS constant.
+You MUST update LLM.txt with any new project-specific file references.
+You MUST tailor .devcontainer/devcontainer.json to the chosen tech stack by removing unnecessary features.
+You MUST assign sequential ADR numbers starting from ADR-0002 using the pattern ADR-####-slug.md.
+You MUST assign sequential core-component numbers starting from CORE-COMPONENT-0002 using the pattern CORE-COMPONENT-####-slug.md.
+You MUST configure project verification commands and write them to `.github/soft-factory/verification.yml`.
+You MUST ask the user to confirm or customize the proposed verification commands before writing the config.
+You MUST NOT set up CI/CD pipelines or infrastructure.
+You MUST NOT make feature-level decisions; only foundational project decisions.
+You MUST NOT skip any user confirmation before writing files.
+You SHOULD present a summary of gathered information for user confirmation before executing changes.
+You SHOULD reference the tech stack ADR in each core-component's Related ADRs section.
+You MAY consult external documentation for the chosen tech stack's best practices.
+You MAY suggest common cross-cutting concerns the user has not mentioned.
+</instructions>
+
+<constants>
+ADR_TEMPLATE_PATH: "project/architecture/ADR/ADR-0001-template.md"
+CORE_COMPONENT_TEMPLATE_PATH: "project/architecture/core-components/CORE-COMPONENT-0001-template.md"
+DECISION_LOG_PATH: "project/architecture/ADR/DECISION-LOG.md"
+ADR_DIR: "project/architecture/ADR"
+CORE_COMPONENT_DIR: "project/architecture/core-components"
+AGENTS_MD_PATH: "AGENTS.md"
+README_PATH: "README.md"
+APP_DOCS_PATH: "docs/README.md"
+LLM_TXT_PATH: "LLM.txt"
+DEVCONTAINER_PATH: ".devcontainer/devcontainer.json"
+BOOTSTRAP_MARKER: "ADR-0002"
+VERIFICATION_CONFIG_PATH: ".github/soft-factory/verification.yml"
+TECH_STACK_INIT: YAML<<
+- language: python
+  commands:
+    - uv init
+    - uv sync
+  package_manager: uv
+  test_runner: pytest
+  verification_defaults:
+    test: uv run pytest
+    lint: uv run ruff check .
+    format_check: uv run ruff format --check .
+    type_check: uv run mypy .
+- language: node
+  commands:
+    - npm init -y
+  package_manager: npm
+  test_runner: jest
+  verification_defaults:
+    test: npm test
+    lint: npm run lint
+    build: npm run build
+    format_check: npx prettier --check .
+- language: go
+  commands:
+    - go mod init
+  package_manager: go
+  test_runner: go test
+  verification_defaults:
+    test: go test ./...
+    lint: go vet ./...
+    build: go build ./...
+    format_check: gofmt -l .
+- language: rust
+  commands:
+    - cargo init
+  package_manager: cargo
+  test_runner: cargo test
+  verification_defaults:
+    test: cargo test
+    lint: cargo clippy -- -D warnings
+    build: cargo build
+    format_check: cargo fmt -- --check
+- language: dotnet
+  commands:
+    - dotnet new console
+  package_manager: nuget
+  test_runner: dotnet test
+  verification_defaults:
+    test: dotnet test
+    lint: dotnet format --verify-no-changes
+    build: dotnet build
+>>
+DEV_STANDARDS: YAML<<
+- language: python
+  coding_conventions:
+    - Follow PEP 8 for code style
+    - Use type hints on all function signatures
+    - Use docstrings on all public modules, classes, and functions
+    - Prefer pathlib over os.path for file system operations
+  commit_standards:
+    - Follow Conventional Commits specification
+    - Include scope in commit messages when applicable
+  testing_practices:
+    - Write unit tests for all public functions
+    - Use pytest fixtures for shared test setup
+    - Aim for 80% code coverage minimum
+    - Name test files with test_ prefix
+- language: node
+  coding_conventions:
+    - Use ESLint with the project-configured ruleset
+    - Use TypeScript strict mode when TypeScript is chosen
+    - Prefer named exports over default exports
+    - Use async/await over raw Promises
+  commit_standards:
+    - Follow Conventional Commits specification
+    - Include scope in commit messages when applicable
+  testing_practices:
+    - Write unit tests for all exported functions
+    - Use describe/it blocks for test organization
+    - Aim for 80% code coverage minimum
+    - Co-locate test files next to source files or in __tests__ directory
+- language: go
+  coding_conventions:
+    - Follow Effective Go and Go Code Review Comments
+    - Run gofmt on all source files
+    - Use meaningful variable names over single-letter names outside loops
+    - Return errors rather than panic in library code
+  commit_standards:
+    - Follow Conventional Commits specification
+    - Include scope in commit messages when applicable
+  testing_practices:
+    - Write table-driven tests where applicable
+    - Use testify or standard testing package
+    - Aim for 80% code coverage minimum
+    - Name test files with _test.go suffix
+- language: rust
+  coding_conventions:
+    - Follow Rust API Guidelines
+    - Run cargo fmt on all source files
+    - Use clippy lints at warn level minimum
+    - Prefer Result over panic for error handling
+  commit_standards:
+    - Follow Conventional Commits specification
+    - Include scope in commit messages when applicable
+  testing_practices:
+    - Write unit tests in the same file using mod tests
+    - Write integration tests in the tests/ directory
+    - Aim for 80% code coverage minimum
+- language: dotnet
+  coding_conventions:
+    - Follow Microsoft C# coding conventions
+    - Use nullable reference types
+    - Use async/await for I/O-bound operations
+    - Prefer records for immutable data types
+  commit_standards:
+    - Follow Conventional Commits specification
+    - Include scope in commit messages when applicable
+  testing_practices:
+    - Write unit tests using xUnit or NUnit
+    - Use the Arrange-Act-Assert pattern
+    - Aim for 80% code coverage minimum
+    - Name test projects with .Tests suffix
+>>
+</constants>
+
+<formats>
+<format id="BOOTSTRAP_SUMMARY" name="Bootstrap Summary" purpose="Present gathered information for user confirmation before executing changes.">
+# Bootstrap Summary
+
+## Project Identity
+- **Name:** <PROJECT_NAME>
+- **Description:** <PROJECT_DESCRIPTION>
+- **Goal:** <PROJECT_GOAL>
+
+## Tech Stack
+- **Language:** <LANGUAGE>
+- **Framework:** <FRAMEWORK>
+- **Package Manager:** <PACKAGE_MANAGER>
+- **Test Runner:** <TEST_RUNNER>
+- **Init Command:** <INIT_COMMAND>
+
+## Cross-Cutting Concerns
+<CROSS_CUTTING_LIST>
+
+## Development Standards
+<DEVELOPMENT_STANDARDS_SUMMARY>
+
+## Verification Commands
+<VERIFICATION_COMMANDS>
+
+## Artifacts to Create
+<ARTIFACT_LIST>
+
+## Files to Update
+<UPDATE_LIST>
+WHERE:
+- <ARTIFACT_LIST> is Markdown.
+- <CROSS_CUTTING_LIST> is Markdown.
+- <DEVELOPMENT_STANDARDS_SUMMARY> is Markdown.
+- <FRAMEWORK> is String.
+- <INIT_COMMAND> is String.
+- <LANGUAGE> is String.
+- <PACKAGE_MANAGER> is String.
+- <PROJECT_DESCRIPTION> is String.
+- <PROJECT_GOAL> is String.
+- <PROJECT_NAME> is String.
+- <TEST_RUNNER> is String.
+- <UPDATE_LIST> is Markdown.
+- <VERIFICATION_COMMANDS> is Markdown.
+</format>
+
+<format id="BOOTSTRAP_REPORT" name="Bootstrap Report" purpose="Summarize all actions taken during project bootstrap.">
+# Bootstrap Report
+
+## Project
+- **Name:** <PROJECT_NAME>
+- **Description:** <PROJECT_DESCRIPTION>
+
+## Scaffolding
+<SCAFFOLD_OUTPUT>
+
+## ADRs Created
+<ADR_LIST>
+
+## Core-Components Created
+<CORE_COMPONENT_LIST>
+
+## Files Updated
+<FILES_UPDATED>
+
+## Verification Config
+<VERIFICATION_SUMMARY>
+
+## Status
+<STATUS>
+
+## Next Steps
+<NEXT_STEPS>
+WHERE:
+- <ADR_LIST> is Markdown.
+- <CORE_COMPONENT_LIST> is Markdown.
+- <FILES_UPDATED> is Markdown.
+- <NEXT_STEPS> is Markdown.
+- <PROJECT_DESCRIPTION> is String.
+- <PROJECT_NAME> is String.
+- <SCAFFOLD_OUTPUT> is Markdown.
+- <STATUS> is String.
+- <VERIFICATION_SUMMARY> is Markdown.
+</format>
+
+<format id="BOOTSTRAP_BLOCKED" name="Bootstrap Blocked" purpose="Report that bootstrap cannot proceed because the project is already bootstrapped.">
+## Bootstrap Blocked
+
+**Reason:** <REASON>
+
+### Evidence
+<EVIDENCE>
+
+### Suggestion
+<SUGGESTION>
+WHERE:
+- <EVIDENCE> is Markdown.
+- <REASON> is String.
+- <SUGGESTION> is String.
+</format>
+</formats>
+
+<runtime>
+PROJECT_NAME: ""
+PROJECT_DESCRIPTION: ""
+PROJECT_GOAL: ""
+LANGUAGE: ""
+FRAMEWORK: ""
+PACKAGE_MANAGER: ""
+TEST_RUNNER: ""
+INIT_COMMAND: ""
+CROSS_CUTTING_CONCERNS: []
+DEVELOPMENT_STANDARDS: {}
+DEVELOPMENT_STANDARDS_SUMMARY: ""
+IS_BOOTSTRAPPED: false
+BOOTSTRAP_EVIDENCE: ""
+INFO_CONFIRMED: false
+ARTIFACT_LIST: ""
+UPDATE_LIST: ""
+SCAFFOLD_OUTPUT: ""
+NEXT_ADR_NUMBER: 2
+NEXT_CC_NUMBER: 2
+CREATED_ADRS: []
+CREATED_CORE_COMPONENTS: []
+UPDATED_FILES: []
+VERIFICATION_COMMANDS: {}
+</runtime>
+
+<triggers>
+<trigger event="user_message" target="bootstrap-router" />
+</triggers>
+
+<processes>
+<process id="bootstrap-router" name="Route bootstrap request">
+RUN `check-bootstrapped`
+IF IS_BOOTSTRAPPED is true:
+  RETURN: format="BOOTSTRAP_BLOCKED", reason="Project has already been bootstrapped", evidence=BOOTSTRAP_EVIDENCE, suggestion="Create a GitHub issue and use the research agent to start working on it"
+IF PROJECT_NAME is empty:
+  RUN `gather-project-info`
+SET ARTIFACT_LIST := <LIST> (from "Agent Inference" using LANGUAGE, CROSS_CUTTING_CONCERNS, NEXT_ADR_NUMBER, NEXT_CC_NUMBER)
+SET UPDATE_LIST := <LIST> (from "Agent Inference" using README_PATH, APP_DOCS_PATH, AGENTS_MD_PATH, LLM_TXT_PATH, DEVCONTAINER_PATH, DECISION_LOG_PATH)
+SET DEVELOPMENT_STANDARDS_SUMMARY := <SUMMARY> (from "Agent Inference" using DEVELOPMENT_STANDARDS, LANGUAGE)
+IF INFO_CONFIRMED is false:
+  RETURN: format="BOOTSTRAP_SUMMARY", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, project_goal=PROJECT_GOAL, language=LANGUAGE, framework=FRAMEWORK, package_manager=PACKAGE_MANAGER, test_runner=TEST_RUNNER, init_command=INIT_COMMAND, cross_cutting_list=CROSS_CUTTING_CONCERNS, development_standards_summary=DEVELOPMENT_STANDARDS_SUMMARY, artifact_list=ARTIFACT_LIST, update_list=UPDATE_LIST, verification_commands=VERIFICATION_COMMANDS
+RUN `scaffold-project`
+RUN `create-tech-stack-adr`
+IF CROSS_CUTTING_CONCERNS is not empty:
+  RUN `create-core-components`
+RUN `create-development-standards`
+RUN `update-decision-log`
+RUN `configure-verification`
+RUN `update-project-docs`
+RUN `tailor-devcontainer`
+RETURN: format="BOOTSTRAP_REPORT", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, scaffold_output=SCAFFOLD_OUTPUT, adr_list=CREATED_ADRS, core_component_list=CREATED_CORE_COMPONENTS, files_updated=UPDATED_FILES, verification_summary=VERIFICATION_COMMANDS, status="Bootstrapped", next_steps="Create a GitHub issue and use the research agent to start working on it"
+</process>
+
+<process id="check-bootstrapped" name="Check if project has already been bootstrapped">
+USE `search/fileSearch` where: pattern="project/architecture/ADR/ADR-0002-*.md"
+CAPTURE EXISTING_ADRS from `search/fileSearch`
+IF EXISTING_ADRS is not empty:
+  SET IS_BOOTSTRAPPED := true (from "Agent Inference")
+  SET BOOTSTRAP_EVIDENCE := <EVIDENCE> (from "Agent Inference" using EXISTING_ADRS)
+ELSE:
+  SET IS_BOOTSTRAPPED := false (from "Agent Inference")
+</process>
+
+<process id="gather-project-info" name="Gather project identity, tech stack, and cross-cutting concerns from user">
+SET PROJECT_NAME := <NAME> (from "Agent Inference" using USER_INPUT)
+SET PROJECT_DESCRIPTION := <DESC> (from "Agent Inference" using USER_INPUT)
+SET PROJECT_GOAL := <GOAL> (from "Agent Inference" using USER_INPUT)
+SET LANGUAGE := <LANG> (from "Agent Inference" using USER_INPUT, TECH_STACK_INIT)
+SET FRAMEWORK := <FW> (from "Agent Inference" using USER_INPUT)
+SET PACKAGE_MANAGER := <PM> (from "Agent Inference" using USER_INPUT, TECH_STACK_INIT)
+SET TEST_RUNNER := <TR> (from "Agent Inference" using USER_INPUT, TECH_STACK_INIT)
+SET INIT_COMMAND := <CMD> (from "Agent Inference" using LANGUAGE, TECH_STACK_INIT)
+SET CROSS_CUTTING_CONCERNS := <CONCERNS> (from "Agent Inference" using USER_INPUT)
+SET DEVELOPMENT_STANDARDS := <STANDARDS> (from "Agent Inference" using LANGUAGE, DEV_STANDARDS, USER_INPUT)
+SET VERIFICATION_COMMANDS := <DEFAULTS> (from "Agent Inference" using LANGUAGE, TECH_STACK_INIT, TEST_RUNNER)
+</process>
+
+<process id="scaffold-project" name="Initialize the project using the chosen tech stack">
+USE `execute/runInTerminal` where: command=INIT_COMMAND
+CAPTURE SCAFFOLD_OUTPUT from `execute/getTerminalOutput`
+SET UPDATED_FILES := UPDATED_FILES + ["Project scaffold"] (from "Agent Inference")
+</process>
+
+<process id="create-tech-stack-adr" name="Create the foundational tech stack ADR">
+USE `read/readFile` where: filePath=ADR_TEMPLATE_PATH
+CAPTURE ADR_TEMPLATE from `read/readFile`
+SET ADR_CONTENT := <CONTENT> (from "Agent Inference" using ADR_TEMPLATE, LANGUAGE, FRAMEWORK, PACKAGE_MANAGER, TEST_RUNNER, NEXT_ADR_NUMBER)
+SET ADR_FILE := <PATH> (from "Agent Inference" using ADR_DIR, NEXT_ADR_NUMBER)
+USE `edit/createFile` where: content=ADR_CONTENT, filePath=ADR_FILE
+SET CREATED_ADRS := CREATED_ADRS + [ADR_FILE] (from "Agent Inference")
+SET NEXT_ADR_NUMBER := NEXT_ADR_NUMBER + 1 (from "Agent Inference")
+</process>
+
+<process id="create-core-components" name="Create core-component files for each cross-cutting concern">
+USE `read/readFile` where: filePath=CORE_COMPONENT_TEMPLATE_PATH
+CAPTURE CC_TEMPLATE from `read/readFile`
+FOREACH concern IN CROSS_CUTTING_CONCERNS:
+  SET CC_CONTENT := <CONTENT> (from "Agent Inference" using CC_TEMPLATE, concern, NEXT_CC_NUMBER, CREATED_ADRS)
+  SET CC_FILE := <PATH> (from "Agent Inference" using CORE_COMPONENT_DIR, NEXT_CC_NUMBER, concern)
+  USE `edit/createFile` where: content=CC_CONTENT, filePath=CC_FILE
+  SET CREATED_CORE_COMPONENTS := CREATED_CORE_COMPONENTS + [CC_FILE] (from "Agent Inference")
+  SET NEXT_CC_NUMBER := NEXT_CC_NUMBER + 1 (from "Agent Inference")
+</process>
+
+<process id="create-development-standards" name="Create the development standards core-component">
+USE `read/readFile` where: filePath=CORE_COMPONENT_TEMPLATE_PATH
+CAPTURE CC_TEMPLATE from `read/readFile`
+SET DEV_STD_CONTENT := <CONTENT> (from "Agent Inference" using CC_TEMPLATE, DEVELOPMENT_STANDARDS, LANGUAGE, NEXT_CC_NUMBER, CREATED_ADRS)
+SET DEV_STD_FILE := <PATH> (from "Agent Inference" using CORE_COMPONENT_DIR, NEXT_CC_NUMBER, "development-standards")
+USE `edit/createFile` where: content=DEV_STD_CONTENT, filePath=DEV_STD_FILE
+SET CREATED_CORE_COMPONENTS := CREATED_CORE_COMPONENTS + [DEV_STD_FILE] (from "Agent Inference")
+SET DEV_STD_DECISIONS := <DECISIONS> (from "Agent Inference" using DEVELOPMENT_STANDARDS, NEXT_CC_NUMBER)
+SET NEXT_CC_NUMBER := NEXT_CC_NUMBER + 1 (from "Agent Inference")
+</process>
+
+<process id="update-decision-log" name="Update DECISION-LOG.md with all new ADRs and core-components">
+USE `read/readFile` where: filePath=DECISION_LOG_PATH
+CAPTURE CURRENT_LOG from `read/readFile`
+SET UPDATED_LOG := <LOG> (from "Agent Inference" using CURRENT_LOG, CREATED_ADRS, CREATED_CORE_COMPONENTS, DEV_STD_DECISIONS)
+USE `edit/editFiles` where: filePath=DECISION_LOG_PATH
+SET UPDATED_FILES := UPDATED_FILES + [DECISION_LOG_PATH] (from "Agent Inference")
+</process>
+
+<process id="update-project-docs" name="Update README, application docs, AGENTS.md, and LLM.txt">
+USE `read/readFile` where: filePath=README_PATH
+CAPTURE CURRENT_README from `read/readFile`
+SET UPDATED_README := <CONTENT> (from "Agent Inference" using CURRENT_README, PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_GOAL)
+USE `edit/editFiles` where: filePath=README_PATH
+SET UPDATED_FILES := UPDATED_FILES + [README_PATH] (from "Agent Inference")
+USE `read/readFile` where: filePath=APP_DOCS_PATH
+CAPTURE CURRENT_APP_DOCS from `read/readFile`
+SET UPDATED_APP_DOCS := <CONTENT> (from "Agent Inference" using CURRENT_APP_DOCS, PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_GOAL, LANGUAGE, FRAMEWORK)
+USE `edit/editFiles` where: filePath=APP_DOCS_PATH
+SET UPDATED_FILES := UPDATED_FILES + [APP_DOCS_PATH] (from "Agent Inference")
+USE `read/readFile` where: filePath=AGENTS_MD_PATH
+CAPTURE CURRENT_AGENTS from `read/readFile`
+SET UPDATED_AGENTS := <CONTENT> (from "Agent Inference" using CURRENT_AGENTS, CREATED_ADRS, CREATED_CORE_COMPONENTS)
+USE `edit/editFiles` where: filePath=AGENTS_MD_PATH
+SET UPDATED_FILES := UPDATED_FILES + [AGENTS_MD_PATH] (from "Agent Inference")
+USE `read/readFile` where: filePath=LLM_TXT_PATH
+CAPTURE CURRENT_LLM_TXT from `read/readFile`
+SET UPDATED_LLM_TXT := <CONTENT> (from "Agent Inference" using CURRENT_LLM_TXT, CREATED_ADRS, CREATED_CORE_COMPONENTS, LANGUAGE)
+USE `edit/editFiles` where: filePath=LLM_TXT_PATH
+SET UPDATED_FILES := UPDATED_FILES + [LLM_TXT_PATH] (from "Agent Inference")
+</process>
+
+<process id="tailor-devcontainer" name="Tailor devcontainer.json to the chosen tech stack">
+USE `read/readFile` where: filePath=DEVCONTAINER_PATH
+CAPTURE CURRENT_DEVCONTAINER from `read/readFile`
+SET UPDATED_DEVCONTAINER := <CONTENT> (from "Agent Inference" using CURRENT_DEVCONTAINER, LANGUAGE, FRAMEWORK, PACKAGE_MANAGER)
+USE `edit/editFiles` where: filePath=DEVCONTAINER_PATH
+SET UPDATED_FILES := UPDATED_FILES + [DEVCONTAINER_PATH] (from "Agent Inference")
+</process>
+
+<process id="configure-verification" name="Write project verification config file">
+USE `edit/createDirectory` where: dirPath=".github/soft-factory"
+SET VERIFICATION_YAML := <CONTENT> (from "Agent Inference" using VERIFICATION_COMMANDS)
+USE `edit/createFile` where: content=VERIFICATION_YAML, filePath=VERIFICATION_CONFIG_PATH
+SET UPDATED_FILES := UPDATED_FILES + [VERIFICATION_CONFIG_PATH] (from "Agent Inference")
+</process>
+</processes>
+
+<input>
+USER_INPUT is the user's description of the project they want to bootstrap, including project name, goal, tech stack preferences, and cross-cutting concerns.
+</input>
