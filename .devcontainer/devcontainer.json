@@ -1,5 +1,5 @@
 {
-    "name": "soft-factory",
+    "name": "conclave",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
     // "runArgs": [
     //     "--network","host"
@@ -72,7 +72,7 @@
         "GIT_PAGER": "",
         "GH_PAGER": ""
     },
-    "postStartCommand": "tmux -S .devcontainer/.tmux-shared has-session -t soft-factory 2>/dev/null || tmux -S .devcontainer/.tmux-shared new -d -s soft-factory",
+    "postStartCommand": "tmux -S .devcontainer/.tmux-shared has-session -t conclave 2>/dev/null || tmux -S .devcontainer/.tmux-shared new -d -s conclave",
     "remoteUser": "vscode",
     "hostRequirements": {
         "memory": "4gb"

@@ -1,5 +1,5 @@
 ---
-name: research
+name: researcher
 description: "Fetch a GitHub issue, explore the problem space, classify scope, and produce a research brief that hands off cleanly to the Plan stage."
 tools:
   - search/codebase
@@ -116,11 +116,11 @@ RESEARCH_COMPLETE: false
 </runtime>
 
 <triggers>
-<trigger event="user_message" target="research-router" />
+<trigger event="user_message" target="researcher-router" />
 </triggers>
 
 <processes>
-<process id="research-router" name="Route research request">
+<process id="researcher-router" name="Route research request">
 IF CURRENT_ISSUE_NUMBER is empty:
   RUN `fetch-issue`
   RUN `gather-context`

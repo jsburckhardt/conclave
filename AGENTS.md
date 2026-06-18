@@ -21,7 +21,7 @@ APS_BADGE: "[![APS version](https://img.shields.io/badge/APS-v1.2.2-blue?logo=gi
 PIPELINE_STAGES: YAML<<
 - id: research
   name: Research
-  agent: research
+  agent: researcher
   purpose: Explore the problem space, classify scope, produce a research brief
 - id: plan
   name: Plan
@@ -124,8 +124,8 @@ bootstrap:
     - must ask user to confirm or customize proposed verification commands
     - must not set up CI/CD pipelines or infrastructure
     - must not make feature-level decisions
-research:
-  file: .github/agents/research.agent.md
+researcher:
+  file: .github/agents/researcher.agent.md
   purpose: Explore the problem space, classify scope, and produce a research brief that hands off cleanly to the Plan stage.
   tools:
     - web search and documentation lookup
