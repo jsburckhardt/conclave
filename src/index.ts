@@ -6,3 +6,4 @@ export * from "./store/artifact-store.js";
 export * from "./store/transcript-store.js";
 export * from "./runtime/council-runtime.js";
 export * from "./runtime/copilot-session-factory.js";
+export * from "./runtime/permission-handler.js";

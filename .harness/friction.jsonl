@@ -1,3 +1,4 @@
 {"timestamp":"2026-06-20T00:07:00Z","message":"No explicit 'clean' script in package.json — inferred rm -rf dist node_modules as the clean behavior from build output directory and standard npm conventions."}
 {"timestamp":"2026-06-20T00:07:00Z","message":"No explicit 'boot' script in package.json — inferred npm ci as the boot command from package-lock.json presence and verification.yml install step."}
 {"timestamp":"2026-06-20T00:07:00Z","message":"Lint verb combines three separate checks (eslint, prettier, typecheck) — inferred from verification.yml listing them as separate steps that all belong to code quality."}
+{"timestamp":"2026-06-20T08:13:19Z","message":"boot/npm ci fails: package-lock.json out of sync with package.json (@emnapi optional deps drift); using 'npm install' to obtain node_modules, then restoring committed lockfile to avoid unrelated churn. KEY_QUESTION: should the committed package-lock.json be regenerated to match package.json?"}

@@ -1,5 +1,13 @@
-import type { PermissionRequest } from "@github/copilot-sdk";
-import type { PermissionRequestContext } from "../permissions/policy.js";
+import type { PermissionHandler, PermissionRequest } from "@github/copilot-sdk";
+import type { MemberConfig } from "../config/council-config.js";
+import type { Logger } from "../logging/logger.js";
+import {
+  createMemberPermissionPolicy,
+  type PermissionRequestContext,
+} from "../permissions/policy.js";
+
+/** Constant, path-free feedback returned to the SDK on every deny. */
+const READ_ONLY_FEEDBACK = "Denied: member is read-only";
 
 /**
  * Pure, side-effect-free translation of an SDK {@link PermissionRequest} into the
@@ -36,4 +44,34 @@ export function toPermissionRequestContext(request: PermissionRequest): Permissi
       return { writes: true, tool: fallbackKind ?? "unknown" };
     }
   }
+}
+
+/**
+ * Build an SDK {@link PermissionHandler} for a council member that **enforces** the
+ * read-only policy on every live session. It *translates then delegates*: each SDK
+ * request is mapped via {@link toPermissionRequestContext} and the approve/deny
+ * decision is made by the single-sourced `createMemberPermissionPolicy` (the rule is
+ * never re-implemented here).
+ *
+ * Each decision is logged once via the structured logger (CORE-COMPONENT-0005) as the
+ * `permission.decision` event with exactly `{ member, kind, decision }` — never a path,
+ * diff, command, URL, args, or memory fact. The handler returns SDK-shaped results
+ * only: `{ kind: "approve-once" }` on approve and
+ * `{ kind: "reject", feedback: "Denied: member is read-only" }` on deny. It never
+ * throws, never returns `undefined`, and never returns `{ kind: "no-result" }`.
+ */
+export function createPermissionHandler(member: MemberConfig, logger?: Logger): PermissionHandler {
+  const decide = createMemberPermissionPolicy(member);
+  return (request) => {
+    const decision = decide(toPermissionRequestContext(request));
+    logger?.info("permission.decision", {
+      member: member.id,
+      kind: request.kind,
+      decision,
+    });
+    if (decision === "deny") {
+      return { kind: "reject", feedback: READ_ONLY_FEEDBACK };
+    }
+    return { kind: "approve-once" };
+  };
 }
