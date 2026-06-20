@@ -28,7 +28,7 @@ Affects any code path that reads council definitions: the CLI (`council run`/`co
 
 ### Expectations
 - The returned `CouncilConfig` is fully normalized; downstream code never re-validates.
-- Unknown/extra YAML keys are ignored rather than rejected.
+- Unknown/extra YAML keys are ignored rather than rejected. This is intentional for forward-compatibility: new config fields can be introduced without breaking older tool versions. Strict validation may be introduced via opt-in `strict: true` mode in a future iteration.
 
 ## Rationale
 

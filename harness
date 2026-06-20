@@ -103,7 +103,13 @@ cmd_doctor() {
   if _json_flag "${1:-}"; then
     local issues_json="[]"
     if [[ ${#issues[@]} -gt 0 ]]; then
-      issues_json=$(printf '%s\n' "${issues[@]}" | jq -R . | jq -s .)
+      issues_json="["
+      local first=true
+      for issue in "${issues[@]}"; do
+        [[ "$first" == "true" ]] && first=false || issues_json+=","
+        issues_json+="\"$issue\""
+      done
+      issues_json+="]"
     fi
     printf '{"verb":"doctor","verdict":"%s","node":%s,"npm":%s,"deps_installed":%s,"issues":%s,"timestamp":"%s"}\n' \
       "$verdict" "$node_ok" "$npm_ok" "$deps_ok" "$issues_json" "$(_ts)"
@@ -124,9 +130,9 @@ cmd_lint() {
 
   local eslint_ok=0 prettier_ok=0 typecheck_ok=0
 
-  if npm run lint --silent 2>&1; then eslint_ok=0; else eslint_ok=1; verdict="fail"; fi
-  if npm run format:check --silent 2>&1; then prettier_ok=0; else prettier_ok=1; verdict="fail"; fi
-  if npm run typecheck --silent 2>&1; then typecheck_ok=0; else typecheck_ok=1; verdict="fail"; fi
+  if npm run lint --silent >/dev/null 2>&1; then eslint_ok=0; else eslint_ok=1; verdict="fail"; fi
+  if npm run format:check --silent >/dev/null 2>&1; then prettier_ok=0; else prettier_ok=1; verdict="fail"; fi
+  if npm run typecheck --silent >/dev/null 2>&1; then typecheck_ok=0; else typecheck_ok=1; verdict="fail"; fi
 
   end=$(date +%s)
   duration=$(( (end - start) * 1000 ))
@@ -218,6 +224,7 @@ cmd_verify() {
   local results=()
   local start end duration
 
+  mkdir -p "$EVIDENCE_DIR"
   start=$(date +%s)
 
   local lint_v test_v build_v
@@ -309,7 +316,13 @@ cmd_friction_list() {
   if _json_flag "${1:-}"; then
     local count entries
     count=$(wc -l < "$FRICTION_PATH")
-    entries=$(cat "$FRICTION_PATH" | jq -s '.')
+    entries="["
+    local first=true
+    while IFS= read -r line; do
+      [[ "$first" == "true" ]] && first=false || entries+=","
+      entries+="$line"
+    done < "$FRICTION_PATH"
+    entries+="]"
     printf '{"verb":"friction list","verdict":"pass","entries":%s,"count":%s}\n' "$entries" "$count"
   else
     echo "=== Friction Entries ==="
