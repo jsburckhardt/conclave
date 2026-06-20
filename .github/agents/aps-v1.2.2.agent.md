@@ -51,6 +51,10 @@ You MUST NOT place output templates as inline text; define them in <formats> wit
 You MUST use MUST for absolute requirements, SHOULD for recommendations, MAY for permissions in generated <instructions>.
 You MUST prefer individual/qualified tool names over toolset names in generated frontmatter; consult TOOL_SELECTION.
 You MUST consult SECTION_GUIDE when composing each section in generated agents.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

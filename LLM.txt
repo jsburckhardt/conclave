@@ -11,16 +11,37 @@ README.md                                                   — Project overview
 .github/agents/verifier.agent.md                      — Verifier agent (test validation, commits, PR creation)
 .github/agents/implementer.agent.md                   — Implementer agent (code, tests, verification)
 .github/agents/planner.agent.md                       — Planner agent (ADRs, core-components, action plans, task breakdown, test plans)
-.github/agents/research.agent.md                      — Research agent (exploration, scope classification)
+.github/agents/researcher.agent.md                    — Researcher agent (exploration, scope classification)
 .github/agents/issue-generator.agent.md               — Issue-generator agent (structured issue creation with acceptance criteria)
 .github/PULL_REQUEST_TEMPLATE.md                      — PR template (acceptance criteria, verification checklist)
 docs/README.md                                              — Application documentation index
 project/README.md                                             — Project documentation index
 project/architecture/README.md                                 — Architecture documentation index
-project/architecture/soft-factory-pipeline.excalidraw          — Pipeline diagram source
 project/architecture/ADR/ADR-0001-template.md                  — ADR template (read-only, copy to create new)
+project/architecture/ADR/ADR-0002-typescript-copilot-sdk-runtime.md — Tech-stack ADR (TypeScript + Copilot SDK, Model A multi-session)
 project/architecture/ADR/DECISION-LOG.md                       — Registry of all ADR and core-component decisions
 project/architecture/core-components/CORE-COMPONENT-0001-template.md — Core-component template (read-only, copy to create new)
 project/architecture/core-components/CORE-COMPONENT-0002-commit-standards.md — Commit standards (Conventional Commits, Co-authored-by)
+project/architecture/core-components/CORE-COMPONENT-0003-configuration.md — Council config loading and validation
+project/architecture/core-components/CORE-COMPONENT-0004-session-lifecycle-persistence.md — Copilot session lifecycle and resumable session ids
+project/architecture/core-components/CORE-COMPONENT-0005-logging-observability.md — Structured JSON logging
+project/architecture/core-components/CORE-COMPONENT-0006-artifact-transcript-store.md — File-based transcript and artifact stores
+project/architecture/core-components/CORE-COMPONENT-0007-permission-policy.md — Member read-only permission policy
+project/architecture/core-components/CORE-COMPONENT-0008-error-handling.md — Typed CouncilError hierarchy
+project/architecture/core-components/CORE-COMPONENT-0009-development-standards.md — Coding, commit, and testing standards
 project/architecture/core-components/README.md                 — Core-components index
 project/issues/README.md                                       — Issues index and canonical structure
+prd.md                                                         — Product brief and v0–v2 roadmap
+package.json                                                   — Node/TypeScript manifest and scripts (build, test, lint, format)
+tsconfig.json                                                  — TypeScript compiler configuration (strict, NodeNext)
+.github/soft-factory/verification.yml                          — Verification commands (test, lint, build, format, typecheck)
+src/cli.ts                                                     — `council` CLI entry (init, add-member, run, continue)
+src/index.ts                                                   — Public package exports
+src/config/council-config.ts                                   — council.yaml schema, loading, and validation
+src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
+src/runtime/copilot-session-factory.ts                         — Copilot SDK-backed session factory
+src/logging/logger.ts                                          — Structured logger
+src/permissions/policy.ts                                      — Member permission policy
+src/store/transcript-store.ts                                  — Append-only transcript store
+src/store/artifact-store.ts                                    — Artifact writer
+src/errors.ts                                                  — Typed error hierarchy

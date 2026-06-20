@@ -17,7 +17,7 @@ user-invocable: true
 disable-model-invocation: true
 target: vscode
 agents:
-  - research
+  - researcher
   - planner
   - implementer
   - verifier
@@ -41,6 +41,10 @@ You MUST track progress using the todo tool throughout execution.
 You MUST summarize each stage result before dispatching the next stage.
 You SHOULD provide the next stage agent with context from all prior stage outputs.
 You MAY retry a failed stage once before stopping with an error report.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>
@@ -48,7 +52,7 @@ AGENTS_MD_PATH: "AGENTS.md"
 DECISION_LOG_PATH: "project/architecture/ADR/DECISION-LOG.md"
 ISSUES_DIR: "project/issues"
 STAGE_AGENTS: YAML<<
-- agent: research
+- agent: researcher
   output: project/issues/<ISSUE_NUMBER>/research/00-research.md
   purpose: Explore problem space, classify scope, produce research brief
   stage: research
@@ -158,7 +162,7 @@ RETRY_COUNT: 0
 RUN `init-pipeline`
 RUN `dispatch-research`
 IF PIPELINE_STATUS = "error":
-  RETURN: format="PIPELINE_ERROR", issue_number=ISSUE_NUMBER, failed_stage=CURRENT_STAGE, error_message="Research stage failed", details=RESEARCH_RESULT, recovery="Review the error and retry with @research"
+  RETURN: format="PIPELINE_ERROR", issue_number=ISSUE_NUMBER, failed_stage=CURRENT_STAGE, error_message="Research stage failed", details=RESEARCH_RESULT, recovery="Review the error and retry with @researcher"
 RUN `dispatch-plan`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", issue_number=ISSUE_NUMBER, failed_stage=CURRENT_STAGE, error_message="Plan stage failed", details=PLAN_RESULT, recovery="Review the error and retry with @planner"
@@ -188,9 +192,9 @@ IF HAS_ACCEPTANCE_CRITERIA is false:
 SET PIPELINE_STATUS := "running" (from "Agent Inference")
 </process>
 
-<process id="dispatch-research" name="Dispatch the Research stage to the research agent">
+<process id="dispatch-research" name="Dispatch the Research stage to the researcher agent">
 SET CURRENT_STAGE := "research" (from "Agent Inference")
-USE `agent/runSubagent` where: agent="research", prompt=TASK_DESCRIPTION
+USE `agent/runSubagent` where: agent="researcher", prompt=TASK_DESCRIPTION
 CAPTURE RESEARCH_RESULT from `agent/runSubagent`
 SET PIPELINE_STATUS := <STATUS> (from "Agent Inference" using RESEARCH_RESULT)
 IF PIPELINE_STATUS != "error":

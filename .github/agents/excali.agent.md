@@ -22,6 +22,10 @@ You MUST use boundElements on the shape and containerId on the text when adding 
 You MUST use the EXCALIDRAW_TEMPLATE constant as the base structure for all generated diagrams.
 You SHOULD search for existing Excalidraw files in the workspace to match styling conventions.
 You SHOULD maintain minimum 20px gaps between elements for visual clarity.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

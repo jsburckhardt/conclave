@@ -1,5 +1,5 @@
 ---
-name: research
+name: researcher
 description: "Fetch a GitHub issue, explore the problem space, classify scope, and produce a research brief that hands off cleanly to the Plan stage."
 tools:
   - search/codebase
@@ -41,6 +41,10 @@ You MUST follow the Research Brief template defined in Section 5.1 of the specif
 You SHOULD reference related existing ADRs and core-components in your research brief.
 You SHOULD identify risks, open questions, and unknowns in the research brief.
 You MAY consult external documentation or APIs for additional context.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>
@@ -116,11 +120,11 @@ RESEARCH_COMPLETE: false
 </runtime>
 
 <triggers>
-<trigger event="user_message" target="research-router" />
+<trigger event="user_message" target="researcher-router" />
 </triggers>
 
 <processes>
-<process id="research-router" name="Route research request">
+<process id="researcher-router" name="Route research request">
 IF CURRENT_ISSUE_NUMBER is empty:
   RUN `fetch-issue`
   RUN `gather-context`

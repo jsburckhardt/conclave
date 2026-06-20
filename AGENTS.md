@@ -14,6 +14,10 @@ You MUST inspect existing repo code and documentation before proposing new work.
 You MUST NOT skip any stage in the pipeline.
 You MUST update the APS version badge in README.md and the APS_BADGE constant when the APS skill is upgraded.
 You MUST mark a PR review comment as resolved via the GitHub API after fixing the issue it raised.
+Once ./harness and .harness/contract.yml exist, agents MUST use ./harness as the first-choice operating surface for supported commands.
+Agents MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+Agents MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+Agents MUST record gaps with ./harness friction add using KEY_QUESTION when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>
@@ -21,7 +25,7 @@ APS_BADGE: "[![APS version](https://img.shields.io/badge/APS-v1.2.2-blue?logo=gi
 PIPELINE_STAGES: YAML<<
 - id: research
   name: Research
-  agent: research
+  agent: researcher
   purpose: Explore the problem space, classify scope, produce a research brief
 - id: plan
   name: Plan
@@ -124,8 +128,8 @@ bootstrap:
     - must ask user to confirm or customize proposed verification commands
     - must not set up CI/CD pipelines or infrastructure
     - must not make feature-level decisions
-research:
-  file: .github/agents/research.agent.md
+researcher:
+  file: .github/agents/researcher.agent.md
   purpose: Explore the problem space, classify scope, and produce a research brief that hands off cleanly to the Plan stage.
   tools:
     - web search and documentation lookup

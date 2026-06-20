@@ -17,7 +17,7 @@ Each stage has clear inputs, outputs, and artifact locations. No stage may be sk
 
 ## Stage 1 — Research
 
-- The research agent fetches the GitHub Issue via `gh issue view`
+- The researcher agent fetches the GitHub Issue via `gh issue view`
 - Produces `project/issues/<ISSUE_NUMBER>/research/00-research.md`
 - Classifies `scope_type` as one of: `issue`, `architecture_decision`, `core_component`
 - Identifies whether ADRs or core-components are needed

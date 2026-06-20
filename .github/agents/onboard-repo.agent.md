@@ -18,7 +18,7 @@ disable-model-invocation: true
 target: vscode
 handoffs:
   - label: Start First Issue
-    agent: research
+    agent: researcher
     prompt: Research and classify the first GitHub issue for this repository.
     send: false
 ---
@@ -48,6 +48,10 @@ You MUST NOT skip user confirmation before writing any files.
 You SHOULD present an onboarding summary for user confirmation before writing files.
 You SHOULD identify risks, gaps, and open questions discovered during analysis.
 You MAY consult external documentation to clarify inferred tech stack choices.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>
@@ -244,7 +248,7 @@ RISKS: ""
 <process id="onboard-router" name="Route onboarding request">
 RUN `check-onboarded`
 IF IS_ONBOARDED is true:
-  RETURN: format="ONBOARD_BLOCKED", reason="Repository already has the Soft Factory engineering flow", evidence=ONBOARD_EVIDENCE, suggestion="Use the research agent to start working on a GitHub issue"
+  RETURN: format="ONBOARD_BLOCKED", reason="Repository already has the Soft Factory engineering flow", evidence=ONBOARD_EVIDENCE, suggestion="Use the researcher agent to start working on a GitHub issue"
 RUN `analyse-repository`
 SET ARTIFACT_LIST := <LIST> (from "Agent Inference" using DISCOVERED_ADRS, DISCOVERED_CONCERNS, NEXT_ADR_NUMBER, NEXT_CC_NUMBER)
 SET UPDATE_LIST := <LIST> (from "Agent Inference" using README_PATH, AGENTS_MD_PATH, LLM_TXT_PATH, DECISION_LOG_PATH)
@@ -256,7 +260,7 @@ IF DISCOVERED_CONCERNS is not empty:
 RUN `update-decision-log`
 RUN `create-first-issue`
 RUN `update-project-docs`
-RETURN: format="ONBOARD_REPORT", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, tech_stack=TECH_STACK, adr_list=CREATED_ADRS, core_component_list=CREATED_CORE_COMPONENTS, files_updated=UPDATED_FILES, status="Onboarded", next_steps="Use the research agent to start working on GitHub issue #<FIRST_ISSUE_NUMBER>"
+RETURN: format="ONBOARD_REPORT", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, tech_stack=TECH_STACK, adr_list=CREATED_ADRS, core_component_list=CREATED_CORE_COMPONENTS, files_updated=UPDATED_FILES, status="Onboarded", next_steps="Use the researcher agent to start working on GitHub issue #<FIRST_ISSUE_NUMBER>"
 </process>
 
 <process id="check-onboarded" name="Check if the repository already has the Soft Factory engineering flow">

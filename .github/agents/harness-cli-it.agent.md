@@ -43,6 +43,10 @@ You MUST run ./harness verify before claiming completion.
 You SHOULD keep the harness implementation dependency-light.
 You SHOULD prefer portable shell or existing repo runtime tooling.
 You MAY add small helper files inside .harness when needed.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

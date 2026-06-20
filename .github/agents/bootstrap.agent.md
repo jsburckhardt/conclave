@@ -18,7 +18,7 @@ disable-model-invocation: true
 target: vscode
 handoffs:
   - label: Start First Issue
-    agent: research
+    agent: researcher
     prompt: Research and classify the first GitHub issue for this newly bootstrapped project.
     send: false
 ---
@@ -54,6 +54,10 @@ You SHOULD present a summary of gathered information for user confirmation befor
 You SHOULD reference the tech stack ADR in each core-component's Related ADRs section.
 You MAY consult external documentation for the chosen tech stack's best practices.
 You MAY suggest common cross-cutting concerns the user has not mentioned.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>
@@ -330,7 +334,7 @@ VERIFICATION_COMMANDS: {}
 <process id="bootstrap-router" name="Route bootstrap request">
 RUN `check-bootstrapped`
 IF IS_BOOTSTRAPPED is true:
-  RETURN: format="BOOTSTRAP_BLOCKED", reason="Project has already been bootstrapped", evidence=BOOTSTRAP_EVIDENCE, suggestion="Create a GitHub issue and use the research agent to start working on it"
+  RETURN: format="BOOTSTRAP_BLOCKED", reason="Project has already been bootstrapped", evidence=BOOTSTRAP_EVIDENCE, suggestion="Create a GitHub issue and use the researcher agent to start working on it"
 IF PROJECT_NAME is empty:
   RUN `gather-project-info`
 SET ARTIFACT_LIST := <LIST> (from "Agent Inference" using LANGUAGE, CROSS_CUTTING_CONCERNS, NEXT_ADR_NUMBER, NEXT_CC_NUMBER)
@@ -347,7 +351,7 @@ RUN `update-decision-log`
 RUN `configure-verification`
 RUN `update-project-docs`
 RUN `tailor-devcontainer`
-RETURN: format="BOOTSTRAP_REPORT", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, scaffold_output=SCAFFOLD_OUTPUT, adr_list=CREATED_ADRS, core_component_list=CREATED_CORE_COMPONENTS, files_updated=UPDATED_FILES, verification_summary=VERIFICATION_COMMANDS, status="Bootstrapped", next_steps="Create a GitHub issue and use the research agent to start working on it"
+RETURN: format="BOOTSTRAP_REPORT", project_name=PROJECT_NAME, project_description=PROJECT_DESCRIPTION, scaffold_output=SCAFFOLD_OUTPUT, adr_list=CREATED_ADRS, core_component_list=CREATED_CORE_COMPONENTS, files_updated=UPDATED_FILES, verification_summary=VERIFICATION_COMMANDS, status="Bootstrapped", next_steps="Create a GitHub issue and use the researcher agent to start working on it"
 </process>
 
 <process id="check-bootstrapped" name="Check if project has already been bootstrapped">

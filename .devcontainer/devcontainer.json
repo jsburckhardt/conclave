@@ -1,5 +1,5 @@
 {
-    "name": "soft-factory",
+    "name": "conclave",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
     // "runArgs": [
     //     "--network","host"
@@ -12,18 +12,10 @@
             "installOhMyZshConfig": true
         },
         "ghcr.io/devcontainers/features/docker-outside-of-docker": {},
-        // "ghcr.io/devcontainers/features/python": {},
-        // "ghcr.io/devcontainers/features/node": {
-            // "version": "lts"
-        // },
-        // "ghcr.io/devcontainers/features/go:1": {
-        //     "version": "latest"
-        // },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        },
         "ghcr.io/devcontainers/features/azure-cli:1": {},
-        // "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {
-        //     "shellautocompletion": true,
-        //     "version": "latest"
-        // },
         "ghcr.io/stuartleeks/dev-container-features/shell-history": {},
         // "ghcr.io/jsburckhardt/devcontainer-features/opencode:latest": {},
         "ghcr.io/jsburckhardt/devcontainer-features/just": {},
@@ -38,8 +30,7 @@
                 "chat.agent.maxRequests": 2000,
                 "files.insertFinalNewline": true,
                 "files.trimTrailingWhitespace": true,
-                "editor.tabSize": 4,
-                // "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
+                "editor.tabSize": 2,
                 "files.autoSave": "onWindowChange",
                 "chat.customAgentInSubagent.enabled": true
             },
@@ -61,9 +52,6 @@
     // "postCreateCommand": "bash ./.devcontainer/setupEnv.sh",
     "containerEnv": {
         "DISPLAY": "dummy",
-        "PYTHONUNBUFFERED": "True",
-        "UV_LINK_MODE": "copy",
-        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv",
         "HOST_PROJECT_PATH": "${localWorkspaceFolder}",
         "COPILOT_OTEL_ENABLED": "${localEnv:COPILOT_OTEL_ENABLED}",
         "COPILOT_OTEL_EXPORTER_TYPE": "${localEnv:COPILOT_OTEL_EXPORTER_TYPE}",
@@ -72,7 +60,7 @@
         "GIT_PAGER": "",
         "GH_PAGER": ""
     },
-    "postStartCommand": "tmux -S .devcontainer/.tmux-shared has-session -t soft-factory 2>/dev/null || tmux -S .devcontainer/.tmux-shared new -d -s soft-factory",
+    "postStartCommand": "tmux -S .devcontainer/.tmux-shared has-session -t conclave 2>/dev/null || tmux -S .devcontainer/.tmux-shared new -d -s conclave",
     "remoteUser": "vscode",
     "hostRequirements": {
         "memory": "4gb"

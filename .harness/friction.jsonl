@@ -1,0 +1,3 @@
+{"timestamp":"2026-06-20T00:07:00Z","message":"No explicit 'clean' script in package.json — inferred rm -rf dist node_modules as the clean behavior from build output directory and standard npm conventions."}
+{"timestamp":"2026-06-20T00:07:00Z","message":"No explicit 'boot' script in package.json — inferred npm ci as the boot command from package-lock.json presence and verification.yml install step."}
+{"timestamp":"2026-06-20T00:07:00Z","message":"Lint verb combines three separate checks (eslint, prettier, typecheck) — inferred from verification.yml listing them as separate steps that all belong to code quality."}
