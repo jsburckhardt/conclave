@@ -65,8 +65,11 @@ function validateName(name: string): void {
 /**
  * Resolve the `council/` base and `council/<name>` target, then apply the
  * defense-in-depth traversal guard reused from `ArtifactStore.write`
- * (CORE-COMPONENT-0006): reject when the relative path is empty, equals `..`,
- * or starts with `..`.
+ * (CORE-COMPONENT-0006): reject only the real escape cases — an empty relative
+ * path, exactly `..`, or a relative path that starts with `..` followed by a
+ * path separator (`../` on POSIX, `..\` on Windows). A bare `startsWith("..")`
+ * would over-reject allowlisted names such as `..a` or `...` that resolve to a
+ * real directory strictly inside `councilBase`.
  */
 function resolveCouncilPaths(
   baseDir: string,
@@ -75,7 +78,7 @@ function resolveCouncilPaths(
   const councilBase = resolve(baseDir, "council");
   const councilDir = resolve(councilBase, name);
   const rel = relative(councilBase, councilDir);
-  if (rel.length === 0 || rel === ".." || rel.startsWith("..")) {
+  if (rel.length === 0 || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) {
     throw new ConfigError(
       `Invalid council name '${name}': resolves outside the council base directory`,
     );

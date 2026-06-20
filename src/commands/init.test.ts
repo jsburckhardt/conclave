@@ -242,6 +242,20 @@ describe("scaffoldCouncil", () => {
     expect(await exists(join(baseDir, "council.yaml"))).toBe(false);
   });
 
+  // TP-10b — allowlisted dot-prefixed names that stay inside council/ are
+  // accepted; the guard rejects only real escapes, not any name starting with
+  // ".." (regression for the overly-broad `startsWith("..")` guard).
+  it("accepts allowlisted dot-prefixed names that remain inside council/ (TP-10b)", async () => {
+    const councilBase = resolve(baseDir, "council");
+    for (const name of ["..a", "..."]) {
+      const res = await scaffoldCouncil({ name, baseDir });
+      // The directory is created at exactly council/<name>, strictly inside base.
+      expect(res.councilDir).toBe(resolve(councilBase, name));
+      expect(relative(councilBase, res.councilDir)).toBe(name);
+      expect(await exists(join(res.councilDir, "council.yaml"))).toBe(true);
+    }
+  });
+
   // TP-11 — partial-failure cleanup removes the partially-created directory.
   it("removes the partial directory when a post-create write fails (TP-11)", async () => {
     const councilDir = resolve(baseDir, "council", "demo");
