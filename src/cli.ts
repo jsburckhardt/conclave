@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { scaffoldCouncil } from "./commands/init.js";
 import { loadCouncilConfig } from "./config/council-config.js";
 import { createLogger } from "./logging/logger.js";
 
@@ -21,9 +22,9 @@ program
   .command("init")
   .description("Scaffold a new council directory with a council.yaml")
   .argument("<name>", "council name")
-  .action((name: string) => {
+  .action(async (name: string) => {
     logger.info("council.init", { name });
-    notImplemented("init");
+    await scaffoldCouncil({ name, logger });
   });
 
 program

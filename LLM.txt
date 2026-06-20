@@ -37,6 +37,7 @@ tsconfig.json                                                  — TypeScript co
 .github/soft-factory/verification.yml                          — Verification commands (test, lint, build, format, typecheck)
 src/cli.ts                                                     — `council` CLI entry (init, add-member, run, continue)
 src/index.ts                                                   — Public package exports
+src/commands/init.ts                                           — council init scaffolder (scaffoldCouncil)
 src/config/council-config.ts                                   — council.yaml schema, loading, and validation
 src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
 src/runtime/copilot-session-factory.ts                         — Copilot SDK-backed session factory
