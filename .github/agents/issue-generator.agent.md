@@ -46,6 +46,10 @@ You SHOULD propose acceptance criteria that cover security, accessibility, and v
 You SHOULD reference relevant ADRs and core-components in the technical considerations.
 You SHOULD identify edge cases based on patterns from previous issues.
 You MAY suggest labels based on the issue content.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

@@ -50,6 +50,10 @@ You MUST summarize what was done, reference the GitHub issue with "Closes #<numb
 You MUST write a summary.md to project/issues/<ISSUE_NUMBER>/verify/summary.md after PR creation using the write-summary process.
 You MUST NOT include secrets, tokens, environment variables, raw command output, or absolute local filesystem paths in summary.md.
 You SHOULD update documentation when implementation changes warrant it.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

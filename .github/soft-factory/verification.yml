@@ -1,0 +1,12 @@
+# Soft Factory verification commands for Conclave.
+#
+# The verifier agent loads this file and runs each step in order. All steps must
+# pass before any git operation (commit, push, PR) proceeds. Contributors can run
+# the same steps locally. Categories map to package.json scripts.
+commands:
+  install: npm ci
+  type_check: npm run typecheck
+  lint: npm run lint
+  format_check: npm run format:check
+  test: npm test
+  build: npm run build

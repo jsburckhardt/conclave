@@ -1,0 +1,341 @@
+#!/usr/bin/env bash
+# Engineering harness CLI for Conclave
+# Wraps existing npm scripts; does NOT invent a new build system.
+set -euo pipefail
+
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EVIDENCE_DIR="$HARNESS_DIR/.harness/evidence"
+FRICTION_PATH="$HARNESS_DIR/.harness/friction.jsonl"
+CONTRACT_PATH="$HARNESS_DIR/.harness/contract.yml"
+
+# --- Helpers -----------------------------------------------------------
+
+_ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+
+_verdict_json() {
+  local verb="$1" verdict="$2" message="$3" duration="${4:-0}"
+  printf '{"verb":"%s","verdict":"%s","message":"%s","timestamp":"%s","duration_ms":%s}\n' \
+    "$verb" "$verdict" "$message" "$(_ts)" "$duration"
+}
+
+_run_step() {
+  local verb="$1" label="$2" cmd="$3"
+  local start end duration output exit_code
+  start=$(date +%s%N 2>/dev/null || date +%s)
+  if output=$(eval "$cmd" 2>&1); then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+  end=$(date +%s%N 2>/dev/null || date +%s)
+  duration=$(( (end - start) / 1000000 ))
+  if [[ $exit_code -eq 0 ]]; then
+    echo "✓ $label"
+    return 0
+  else
+    echo "✗ $label"
+    echo "$output" | tail -20
+    return 1
+  fi
+}
+
+_json_flag() { [[ "${1:-}" == "--json" ]]; }
+
+# --- Commands ----------------------------------------------------------
+
+cmd_help() {
+  cat <<EOF
+Usage: ./harness <command> [options]
+
+Commands:
+  help           Show this help message
+  orient         Show project orientation info
+  doctor         Check development environment health
+  lint           Run linting (eslint + prettier + typecheck)
+  test           Run test suite (vitest)
+  build          Build the project (tsc)
+  boot           Install dependencies (npm ci)
+  verify         Run full verification pipeline
+  status         Show project status summary
+  clean          Remove build artifacts and node_modules
+  friction add   Record a friction entry
+  friction list  List friction entries
+
+Options:
+  --json         Output machine-readable JSON (where supported)
+EOF
+}
+
+cmd_orient() {
+  local name version description node_version
+  name=$(node -p "require('./package.json').name" 2>/dev/null || echo "unknown")
+  version=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
+  description=$(node -p "require('./package.json').description" 2>/dev/null || echo "unknown")
+  node_version=$(node --version 2>/dev/null || echo "unknown")
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"orient","verdict":"pass","project":"%s","version":"%s","description":"%s","node_version":"%s","runtime":"node","package_manager":"npm","test_runner":"vitest","bundler":"tsc","timestamp":"%s"}\n' \
+      "$name" "$version" "$description" "$node_version" "$(_ts)"
+  else
+    echo "=== Project Orientation ==="
+    echo "Name:            $name"
+    echo "Version:         $version"
+    echo "Description:     $description"
+    echo "Node:            $node_version"
+    echo "Package Manager: npm"
+    echo "Test Runner:     vitest"
+    echo "Bundler:         tsc (TypeScript compiler)"
+    echo "Verdict:         pass"
+  fi
+}
+
+cmd_doctor() {
+  local verdict="pass" issues=()
+  local node_ok npm_ok deps_ok
+
+  if command -v node &>/dev/null; then node_ok="true"; else node_ok="false"; issues+=("node not found"); fi
+  if command -v npm &>/dev/null; then npm_ok="true"; else npm_ok="false"; issues+=("npm not found"); fi
+  if [[ -d "$HARNESS_DIR/node_modules" ]]; then deps_ok="true"; else deps_ok="false"; issues+=("node_modules missing — run ./harness boot"); fi
+
+  [[ ${#issues[@]} -gt 0 ]] && verdict="degraded"
+  [[ "$node_ok" == "false" || "$npm_ok" == "false" ]] && verdict="fail"
+
+  if _json_flag "${1:-}"; then
+    local issues_json="[]"
+    if [[ ${#issues[@]} -gt 0 ]]; then
+      issues_json=$(printf '%s\n' "${issues[@]}" | jq -R . | jq -s .)
+    fi
+    printf '{"verb":"doctor","verdict":"%s","node":%s,"npm":%s,"deps_installed":%s,"issues":%s,"timestamp":"%s"}\n' \
+      "$verdict" "$node_ok" "$npm_ok" "$deps_ok" "$issues_json" "$(_ts)"
+  else
+    echo "=== Doctor ==="
+    echo "Node:      $(command -v node &>/dev/null && node --version || echo 'NOT FOUND')"
+    echo "npm:       $(command -v npm &>/dev/null && npm --version || echo 'NOT FOUND')"
+    echo "Deps:      $([[ -d "$HARNESS_DIR/node_modules" ]] && echo 'installed' || echo 'MISSING')"
+    [[ ${#issues[@]} -gt 0 ]] && printf "Issues:    %s\n" "${issues[*]}"
+    echo "Verdict:   $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_lint() {
+  local verdict="pass" results=() start end duration
+  start=$(date +%s)
+
+  local eslint_ok=0 prettier_ok=0 typecheck_ok=0
+
+  if npm run lint --silent 2>&1; then eslint_ok=0; else eslint_ok=1; verdict="fail"; fi
+  if npm run format:check --silent 2>&1; then prettier_ok=0; else prettier_ok=1; verdict="fail"; fi
+  if npm run typecheck --silent 2>&1; then typecheck_ok=0; else typecheck_ok=1; verdict="fail"; fi
+
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"lint","verdict":"%s","eslint":%s,"prettier":%s,"typecheck":%s,"duration_ms":%s,"timestamp":"%s"}\n' \
+      "$verdict" "$([[ $eslint_ok -eq 0 ]] && echo true || echo false)" \
+      "$([[ $prettier_ok -eq 0 ]] && echo true || echo false)" \
+      "$([[ $typecheck_ok -eq 0 ]] && echo true || echo false)" \
+      "$duration" "$(_ts)"
+  else
+    echo "=== Lint ==="
+    echo "ESLint:    $([[ $eslint_ok -eq 0 ]] && echo '✓ pass' || echo '✗ fail')"
+    echo "Prettier:  $([[ $prettier_ok -eq 0 ]] && echo '✓ pass' || echo '✗ fail')"
+    echo "Typecheck: $([[ $typecheck_ok -eq 0 ]] && echo '✓ pass' || echo '✗ fail')"
+    echo "Verdict:   $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_test() {
+  local start end duration output exit_code verdict
+  start=$(date +%s)
+  if output=$(npm test 2>&1); then
+    exit_code=0; verdict="pass"
+  else
+    exit_code=$?; verdict="fail"
+  fi
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"test","verdict":"%s","exit_code":%s,"duration_ms":%s,"timestamp":"%s"}\n' \
+      "$verdict" "$exit_code" "$duration" "$(_ts)"
+  else
+    echo "=== Test ==="
+    echo "$output" | tail -10
+    echo "Verdict: $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_build() {
+  local start end duration output exit_code verdict
+  start=$(date +%s)
+  if output=$(npm run build 2>&1); then
+    exit_code=0; verdict="pass"
+  else
+    exit_code=$?; verdict="fail"
+  fi
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"build","verdict":"%s","exit_code":%s,"duration_ms":%s,"timestamp":"%s"}\n' \
+      "$verdict" "$exit_code" "$duration" "$(_ts)"
+  else
+    echo "=== Build ==="
+    [[ $exit_code -ne 0 ]] && echo "$output" | tail -20
+    echo "Verdict: $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_boot() {
+  local start end duration output exit_code verdict
+  start=$(date +%s)
+  if output=$(npm ci 2>&1); then
+    exit_code=0; verdict="pass"
+  else
+    exit_code=$?; verdict="fail"
+  fi
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"boot","verdict":"%s","exit_code":%s,"duration_ms":%s,"timestamp":"%s"}\n' \
+      "$verdict" "$exit_code" "$duration" "$(_ts)"
+  else
+    echo "=== Boot ==="
+    echo "npm ci: $([[ $exit_code -eq 0 ]] && echo '✓ done' || echo '✗ failed')"
+    echo "Verdict: $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_verify() {
+  local verdict="pass" evidence_file="$EVIDENCE_DIR/verify-$(date -u +%Y%m%dT%H%M%SZ).json"
+  local results=()
+  local start end duration
+
+  start=$(date +%s)
+
+  local lint_v test_v build_v
+  if cmd_lint --json > /dev/null 2>&1; then lint_v="pass"; else lint_v="fail"; verdict="fail"; fi
+  if cmd_test --json > /dev/null 2>&1; then test_v="pass"; else test_v="fail"; verdict="fail"; fi
+  if cmd_build --json > /dev/null 2>&1; then build_v="pass"; else build_v="fail"; verdict="fail"; fi
+
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  # Write evidence
+  cat > "$evidence_file" <<EVIDENCE
+{"verb":"verify","verdict":"$verdict","lint":"$lint_v","test":"$test_v","build":"$build_v","duration_ms":$duration,"timestamp":"$(_ts)","evidence_path":"$evidence_file"}
+EVIDENCE
+
+  if _json_flag "${1:-}"; then
+    cat "$evidence_file"
+  else
+    echo "=== Verify ==="
+    echo "Lint:     $lint_v"
+    echo "Test:     $test_v"
+    echo "Build:    $build_v"
+    echo "Evidence: $evidence_file"
+    echo "Verdict:  $verdict"
+  fi
+  [[ "$verdict" == "pass" ]] && return 0 || return 1
+}
+
+cmd_status() {
+  local has_modules has_dist has_contract friction_count
+  has_modules=$([[ -d "$HARNESS_DIR/node_modules" ]] && echo "true" || echo "false")
+  has_dist=$([[ -d "$HARNESS_DIR/dist" ]] && echo "true" || echo "false")
+  has_contract=$([[ -f "$CONTRACT_PATH" ]] && echo "true" || echo "false")
+  friction_count=$(wc -l < "$FRICTION_PATH" 2>/dev/null || echo 0)
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"status","verdict":"pass","deps_installed":%s,"built":%s,"contract":%s,"friction_count":%s,"timestamp":"%s"}\n' \
+      "$has_modules" "$has_dist" "$has_contract" "$friction_count" "$(_ts)"
+  else
+    echo "=== Status ==="
+    echo "Deps installed: $has_modules"
+    echo "Built:          $has_dist"
+    echo "Contract:       $has_contract"
+    echo "Friction count: $friction_count"
+    echo "Verdict:        pass"
+  fi
+}
+
+cmd_clean() {
+  local start end duration
+  start=$(date +%s)
+  rm -rf "$HARNESS_DIR/dist" "$HARNESS_DIR/node_modules"
+  end=$(date +%s)
+  duration=$(( (end - start) * 1000 ))
+
+  if _json_flag "${1:-}"; then
+    printf '{"verb":"clean","verdict":"pass","removed":["dist","node_modules"],"duration_ms":%s,"timestamp":"%s"}\n' \
+      "$duration" "$(_ts)"
+  else
+    echo "=== Clean ==="
+    echo "Removed: dist/, node_modules/"
+    echo "Verdict: pass"
+  fi
+}
+
+cmd_friction_add() {
+  local message="${1:-}"
+  if [[ -z "$message" ]]; then
+    echo "Usage: ./harness friction add <message>"
+    echo "The message should answer: What did the agent have to infer that the harness should have proved?"
+    return 1
+  fi
+  local entry
+  entry=$(printf '{"timestamp":"%s","message":"%s"}\n' "$(_ts)" "$message")
+  echo "$entry" >> "$FRICTION_PATH"
+  echo "Recorded friction: $message"
+}
+
+cmd_friction_list() {
+  if [[ ! -f "$FRICTION_PATH" ]] || [[ ! -s "$FRICTION_PATH" ]]; then
+    if _json_flag "${1:-}"; then
+      echo '{"verb":"friction list","verdict":"pass","entries":[],"count":0}'
+    else
+      echo "No friction entries recorded."
+    fi
+    return 0
+  fi
+
+  if _json_flag "${1:-}"; then
+    local count entries
+    count=$(wc -l < "$FRICTION_PATH")
+    entries=$(cat "$FRICTION_PATH" | jq -s '.')
+    printf '{"verb":"friction list","verdict":"pass","entries":%s,"count":%s}\n' "$entries" "$count"
+  else
+    echo "=== Friction Entries ==="
+    cat "$FRICTION_PATH"
+  fi
+}
+
+# --- Dispatch ----------------------------------------------------------
+
+case "${1:-help}" in
+  help)           cmd_help ;;
+  orient)         cmd_orient "${2:-}" ;;
+  doctor)         cmd_doctor "${2:-}" ;;
+  lint)           cmd_lint "${2:-}" ;;
+  test)           cmd_test "${2:-}" ;;
+  build)          cmd_build "${2:-}" ;;
+  boot)           cmd_boot "${2:-}" ;;
+  verify)         cmd_verify "${2:-}" ;;
+  status)         cmd_status "${2:-}" ;;
+  clean)          cmd_clean "${2:-}" ;;
+  friction)
+    case "${2:-}" in
+      add)  shift 2; cmd_friction_add "$*" ;;
+      list) cmd_friction_list "${3:-}" ;;
+      *)    echo "Usage: ./harness friction <add|list>"; exit 1 ;;
+    esac
+    ;;
+  *) echo "Unknown command: $1"; cmd_help; exit 1 ;;
+esac

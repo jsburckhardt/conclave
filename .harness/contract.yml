@@ -1,0 +1,73 @@
+# Harness contract for Conclave
+# Machine-readable description of the ./harness operating surface.
+
+harness_version: "1.0.0"
+project: conclave
+runtime: node
+package_manager: npm
+
+verbs:
+  help:
+    status: supported
+    wraps: null
+    json: false
+  orient:
+    status: supported
+    wraps: null
+    json: true
+  doctor:
+    status: supported
+    wraps: null
+    json: true
+  lint:
+    status: supported
+    wraps: "npm run lint && npm run format:check && npm run typecheck"
+    json: true
+  test:
+    status: supported
+    wraps: "npm test"
+    json: true
+  build:
+    status: supported
+    wraps: "npm run build"
+    json: true
+  boot:
+    status: supported
+    wraps: "npm ci"
+    json: true
+  verify:
+    status: supported
+    wraps: "lint + test + build"
+    json: true
+  status:
+    status: supported
+    wraps: null
+    json: true
+  clean:
+    status: supported
+    wraps: "rm -rf dist node_modules"
+    json: true
+  friction_add:
+    status: supported
+    wraps: null
+    json: false
+  friction_list:
+    status: supported
+    wraps: null
+    json: true
+
+verdicts:
+  - pass
+  - fail
+  - degraded
+  - unknown
+
+evidence_dir: .harness/evidence
+friction_path: .harness/friction.jsonl
+
+required_outputs:
+  - ./harness
+  - .harness/contract.yml
+  - .harness/evidence/
+  - .harness/friction.jsonl
+  - .harness/README.md

@@ -34,6 +34,10 @@ You MUST follow the task breakdown order respecting dependencies between tasks.
 You SHOULD make the smallest possible changes to achieve each task.
 You SHOULD commit frequently with descriptive messages referencing task IDs.
 You MAY refactor existing code when required by a task.
+You MUST use ./harness as the first-choice operating surface when ./harness and .harness/contract.yml exist.
+You MUST prefer ./harness orient, ./harness doctor, ./harness lint, ./harness test, ./harness build, ./harness verify, ./harness status, and ./harness clean over direct wrapped commands.
+You MAY call direct project commands only when the harness contract lacks the needed verb or the harness reports unknown or degraded.
+You MUST record gaps with ./harness friction add when bypassing the harness due to missing proof.
 </instructions>
 
 <constants>

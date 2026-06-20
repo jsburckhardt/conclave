@@ -1,0 +1,47 @@
+{
+  "name": "conclave",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A programmable orchestration layer that composes multiple Copilot-powered, repo-grounded agent sessions into a structured, auditable council that produces durable artifacts.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "council": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.ts\" \"*.{json,js,ts}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.{json,js,ts}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "^1.0.2",
+    "commander": "^15.0.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.3",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.5.0",
+    "prettier": "^3.8.4",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
+  }
+}
