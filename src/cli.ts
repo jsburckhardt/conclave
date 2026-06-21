@@ -1,8 +1,15 @@
 #!/usr/bin/env node
+import { join } from "node:path";
 import { Command } from "commander";
 import { scaffoldCouncil } from "./commands/init.js";
 import { loadCouncilConfig } from "./config/council-config.js";
 import { createLogger } from "./logging/logger.js";
+import { CouncilError } from "./errors.js";
+import { TranscriptStore } from "./store/transcript-store.js";
+import { ArtifactStore } from "./store/artifact-store.js";
+import { CouncilRuntime } from "./runtime/council-runtime.js";
+import { CopilotSessionFactory } from "./runtime/copilot-session-factory.js";
+import { runBacklogCouncil } from "./runtime/council-phases.js";
 
 const logger = createLogger();
 
@@ -45,7 +52,43 @@ program
   .action(async (council: string, options: { config: string }) => {
     const config = await loadCouncilConfig(options.config);
     logger.info("council.run", { council, members: config.members.length, goal: config.goal });
-    notImplemented("run");
+
+    // Q9: durable paths key on config.name (consistent with runtime session ids).
+    const base = join("council", config.name);
+    const transcript = new TranscriptStore(join(base, "transcript", "full.md"));
+    const artifacts = new ArtifactStore(base);
+    const runtime = new CouncilRuntime({
+      config,
+      sessionFactory: new CopilotSessionFactory(),
+      transcript,
+      artifacts,
+      logger,
+    });
+
+    try {
+      await runtime.start();
+      const result = await runBacklogCouncil(runtime, config, { artifacts, logger });
+      logger.info("council.run.complete", {
+        council: config.name,
+        context: result.contextMemberId,
+        backlog: result.backlogMemberId,
+        phases: result.phases,
+        rounds: result.rounds,
+        artifacts: result.artifacts.length,
+        validationSkipped: result.validationSkipped,
+        artifactsSkipped: result.artifactsSkipped,
+      });
+    } finally {
+      // stop() runs on every path; its failure is logged separately and must
+      // never mask the primary error (CORE-COMPONENT-0004).
+      try {
+        await runtime.stop();
+      } catch (stopErr) {
+        logger.error("council.stop.error", {
+          message: stopErr instanceof Error ? stopErr.message : String(stopErr),
+        });
+      }
+    }
   });
 
 program
@@ -58,8 +101,10 @@ program
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
-  logger.error("council.error", {
-    error: error instanceof Error ? error.message : String(error),
-  });
+  const fields =
+    error instanceof CouncilError
+      ? { code: error.code, error: error.message }
+      : { error: error instanceof Error ? error.message : String(error) };
+  logger.error("council.error", fields);
   process.exitCode = 1;
 });
