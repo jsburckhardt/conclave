@@ -666,7 +666,7 @@ describe("runBacklogCouncil", () => {
     expect(countBlocks(await readFile(transcriptPath, "utf8"))).toBe(4);
   });
 
-  it("TP-23: a traversal artifact path surfaces as OrchestrationError wrapping the store Error", async () => {
+  it("TP-23b: a traversal artifact path surfaces as OrchestrationError wrapping the store Error", async () => {
     const config = councilConfig({
       artifacts: ["../escape/backlog.md", "artifacts/epics.md"],
       orchestrator: {

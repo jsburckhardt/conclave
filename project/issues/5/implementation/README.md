@@ -147,7 +147,7 @@ Logs never contain prompt/response bodies (asserted in TP-11; research R7).
 
 - **Status:** Done
 - **Files Changed:** `src/runtime/council-phases.ts`, `src/runtime/council-phases.test.ts`
-- **Tests Passed:** TP-10, TP-12, TP-14, TP-15, TP-20 (epics/open-questions), TP-23 (×2)
+- **Tests Passed:** TP-10, TP-12, TP-14, TP-15, TP-20 (epics/open-questions), TP-23, TP-23b (traversal)
 - **Tests Failed:** 0
 
 ### Changes Summary
