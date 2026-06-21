@@ -13,7 +13,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ID | Title | Status | Date |
 |----|-------|--------|------|
 | CORE-COMPONENT-0002 | Commit Standards | Adopted | 2026-05-05 |
-| CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0005 | Logging and Observability | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-18 |
@@ -43,3 +43,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 14 | Build each member session's permission handler from createMemberPermissionPolicy, never approveAll | CORE-COMPONENT-0007 | 2026-06-20 |
 | 15 | Classify unknown, memory, MCP, tool, hook, and shell permission requests as writes (fail-closed) | CORE-COMPONENT-0007 | 2026-06-20 |
 | 16 | Exclude filesystem paths and secrets from permission feedback and decision logs | CORE-COMPONENT-0007 | 2026-06-20 |
+| 17 | Resolve every council's `council.yaml` path only through `resolveCouncilConfigPath(council, baseDir?)` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 18 | Standardize the on-disk council layout as `council/<council>/council.yaml` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 19 | Reject `<council>` path arguments that escape the council root with a traversal-guarded `ConfigError` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 20 | Persist the edited YAML document (comments, key order, unknown keys), never the normalized validator output | CORE-COMPONENT-0003 | 2026-06-21 |
