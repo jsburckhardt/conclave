@@ -1,4 +1,5 @@
 export * from "./config/council-config.js";
+export * from "./config/add-member.js";
 export * from "./commands/init.js";
 export * from "./errors.js";
 export * from "./logging/logger.js";

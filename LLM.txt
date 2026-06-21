@@ -35,10 +35,12 @@ prd.md                                                         — Product brief
 package.json                                                   — Node/TypeScript manifest and scripts (build, test, lint, format)
 tsconfig.json                                                  — TypeScript compiler configuration (strict, NodeNext)
 .github/soft-factory/verification.yml                          — Verification commands (test, lint, build, format, typecheck)
-src/cli.ts                                                     — `council` CLI entry (init, add-member, run, continue)
+src/cli.ts                                                     — `council` CLI entry shim → delegates to cli-program
+src/cli-program.ts                                             — `council` commander program (buildProgram/main); add-member wiring
 src/index.ts                                                   — Public package exports
 src/commands/init.ts                                           — council init scaffolder (scaffoldCouncil)
 src/config/council-config.ts                                   — council.yaml schema, loading, and validation
+src/config/add-member.ts                                       — council add-member edit module (validate, applyAddMember, addMember)
 src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
 src/runtime/copilot-session-factory.ts                         — Copilot SDK-backed session factory
 src/runtime/permission-handler.ts                              — SDK→policy permission mapping and fail-closed read-only handler
