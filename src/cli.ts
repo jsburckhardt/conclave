@@ -9,7 +9,7 @@ import { TranscriptStore } from "./store/transcript-store.js";
 import { ArtifactStore } from "./store/artifact-store.js";
 import { CouncilRuntime } from "./runtime/council-runtime.js";
 import { CopilotSessionFactory } from "./runtime/copilot-session-factory.js";
-import { runBacklogCouncil } from "./runtime/council-phases.js";
+import { runBacklogCouncil, normalizePolicy, resolveRoles } from "./runtime/council-phases.js";
 
 const logger = createLogger();
 
@@ -52,6 +52,13 @@ program
   .action(async (council: string, options: { config: string }) => {
     const config = await loadCouncilConfig(options.config);
     logger.info("council.run", { council, members: config.members.length, goal: config.goal });
+
+    // Fail fast on contradictory policy / unresolvable roles BEFORE starting the
+    // runtime, so invalid config surfaces as an actionable typed error without the
+    // cost and side effects of creating real member sessions. These pure checks are
+    // idempotent; runBacklogCouncil re-validates to stay self-contained.
+    normalizePolicy(config.orchestrator.policy);
+    resolveRoles(config);
 
     // Q9: durable paths key on config.name (consistent with runtime session ids).
     const base = join("council", config.name);
