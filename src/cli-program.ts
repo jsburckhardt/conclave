@@ -1,9 +1,15 @@
 import { Command, CommanderError } from "commander";
+import { join } from "node:path";
 import { scaffoldCouncil } from "./commands/init.js";
 import { addMember } from "./config/add-member.js";
 import { loadCouncilConfig } from "./config/council-config.js";
 import { CouncilError } from "./errors.js";
 import { createLogger, type Logger } from "./logging/logger.js";
+import { TranscriptStore } from "./store/transcript-store.js";
+import { ArtifactStore } from "./store/artifact-store.js";
+import { CouncilRuntime } from "./runtime/council-runtime.js";
+import { CopilotSessionFactory } from "./runtime/copilot-session-factory.js";
+import { runBacklogCouncil, normalizePolicy, resolveRoles } from "./runtime/council-phases.js";
 
 /**
  * Injectable dependencies for the in-process CLI program. Both are optional so
@@ -93,7 +99,50 @@ export function buildProgram(deps: CliDeps = {}): Command {
     .action(async (council: string, options: { config: string }) => {
       const config = await loadCouncilConfig(options.config);
       logger.info("council.run", { council, members: config.members.length, goal: config.goal });
-      notImplemented("run");
+
+      // Fail fast on contradictory policy / unresolvable roles BEFORE starting the
+      // runtime, so invalid config surfaces as an actionable typed error without the
+      // cost and side effects of creating real member sessions. These pure checks are
+      // idempotent; runBacklogCouncil re-validates to stay self-contained.
+      normalizePolicy(config.orchestrator.policy);
+      resolveRoles(config);
+
+      // Q9: durable paths key on config.name (consistent with runtime session ids).
+      const base = join("council", config.name);
+      const transcript = new TranscriptStore(join(base, "transcript", "full.md"));
+      const artifacts = new ArtifactStore(base);
+      const runtime = new CouncilRuntime({
+        config,
+        sessionFactory: new CopilotSessionFactory(),
+        transcript,
+        artifacts,
+        logger,
+      });
+
+      try {
+        await runtime.start();
+        const result = await runBacklogCouncil(runtime, config, { artifacts, logger });
+        logger.info("council.run.complete", {
+          council: config.name,
+          context: result.contextMemberId,
+          backlog: result.backlogMemberId,
+          phases: result.phases,
+          rounds: result.rounds,
+          artifacts: result.artifacts.length,
+          validationSkipped: result.validationSkipped,
+          artifactsSkipped: result.artifactsSkipped,
+        });
+      } finally {
+        // stop() runs on every path; its failure is logged separately and must
+        // never mask the primary error (CORE-COMPONENT-0004).
+        try {
+          await runtime.stop();
+        } catch (stopErr) {
+          logger.error("council.stop.error", {
+            message: stopErr instanceof Error ? stopErr.message : String(stopErr),
+          });
+        }
+      }
     });
 
   program

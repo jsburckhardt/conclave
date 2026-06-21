@@ -25,3 +25,10 @@ export class SessionError extends CouncilError {
     this.name = "SessionError";
   }
 }
+
+export class OrchestrationError extends CouncilError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, "ORCHESTRATION_ERROR", options);
+    this.name = "OrchestrationError";
+  }
+}

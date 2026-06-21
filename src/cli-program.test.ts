@@ -109,7 +109,9 @@ describe("cli-program main", () => {
     expect(await exists(join(baseDir, "council", "smoke", "council.yaml"))).toBe(true);
     expect(initRecords.some((r) => r.message === "council.init")).toBe(true);
 
-    // run loads the config, logs council.run, then reports not-implemented (exit 1).
+    // run loads the config and logs council.run, then fails fast (exit 1): the
+    // init-scaffolded single-member 'smoke' council cannot resolve two distinct
+    // roles, so resolveRoles raises ORCHESTRATION_ERROR before any SDK session.
     process.exitCode = 0;
     const validConfigPath = join(baseDir, "council", "smoke", "council.yaml");
     const { logger: runLogger, records: runRecords } = createCapturingLogger();

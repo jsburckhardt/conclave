@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { CouncilError, ConfigError, SessionError } from "./errors.js";
+import { CouncilError, ConfigError, SessionError, OrchestrationError } from "./errors.js";
+import { OrchestrationError as RootOrchestrationError } from "./index.js";
 
 describe("errors", () => {
   it("CouncilError carries a code and is an Error", () => {
@@ -18,5 +19,27 @@ describe("errors", () => {
     const err = new SessionError("outer", { cause });
     expect(err.code).toBe("SESSION_ERROR");
     expect(err.cause).toBe(cause);
+  });
+
+  // TP-01: OrchestrationError shape and export.
+  it("OrchestrationError carries the ORCHESTRATION_ERROR code, name, cause, and hierarchy", () => {
+    const cause = new Error("boom");
+    const err = new OrchestrationError("x", { cause });
+    expect(err.code).toBe("ORCHESTRATION_ERROR");
+    expect(err.name).toBe("OrchestrationError");
+    expect(err.cause).toBe(cause);
+    expect(err).toBeInstanceOf(CouncilError);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("OrchestrationError constructs without a cause", () => {
+    const err = new OrchestrationError("x");
+    expect(err.code).toBe("ORCHESTRATION_ERROR");
+    expect(err.cause).toBeUndefined();
+  });
+
+  it("OrchestrationError resolves from the package root with the same class identity", () => {
+    expect(RootOrchestrationError).toBe(OrchestrationError);
+    expect(new RootOrchestrationError("x")).toBeInstanceOf(CouncilError);
   });
 });

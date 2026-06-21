@@ -19,6 +19,7 @@ Affects code that persists council memory and outputs (`src/store/`). Boundaries
 - Final outputs are written via `ArtifactStore.write` (`src/store/artifact-store.ts`).
 - Stores create parent directories as needed (`mkdir -p` semantics).
 - Transcript entries are append-only Markdown blocks containing member, timestamp, prompt, and response.
+- Across council re-runs the transcript is strictly append-only (never truncated) — one block per member exchange — while artifacts are overwritten in place.
 - File-based memory is authoritative; SDK session memory is a convenience, not the source of truth.
 
 ### Interfaces
@@ -28,6 +29,7 @@ Affects code that persists council memory and outputs (`src/store/`). Boundaries
 ### Expectations
 - `append` never truncates existing transcript content.
 - `write` resolves relative paths against the store's base directory and returns the absolute path written.
+- `write` throws a plain `Error` on path traversal; callers (e.g. `runBacklogCouncil`) wrap such failures in a typed `OrchestrationError` (CORE-COMPONENT-0008) with the cause preserved, and a failed artifact write never discards already-appended transcript content.
 
 ## Rationale
 
