@@ -40,10 +40,11 @@ src/index.ts                                                   — Public packag
 src/commands/init.ts                                           — council init scaffolder (scaffoldCouncil)
 src/config/council-config.ts                                   — council.yaml schema, loading, and validation
 src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
+src/runtime/council-phases.ts                                  — Fixed v0 backlog phase orchestrator (runBacklogCouncil, normalizePolicy, resolveRoles, prompt builders); no SDK import; exports OrchestrationError-driven errors; default role heuristic maps "context/project/source of truth" → context source and "scrum/backlog/story" → backlog author
 src/runtime/copilot-session-factory.ts                         — Copilot SDK-backed session factory
 src/runtime/permission-handler.ts                              — SDK→policy permission mapping and fail-closed read-only handler
 src/logging/logger.ts                                          — Structured logger
 src/permissions/policy.ts                                      — Member permission policy
 src/store/transcript-store.ts                                  — Append-only transcript store
 src/store/artifact-store.ts                                    — Artifact writer
-src/errors.ts                                                  — Typed error hierarchy
+src/errors.ts                                                  — Typed error hierarchy (CouncilError, ConfigError, SessionError, OrchestrationError)
