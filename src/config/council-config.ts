@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 import { parse } from "yaml";
 import { ConfigError } from "../errors.js";
 
@@ -117,4 +118,31 @@ export async function loadCouncilConfig(path: string): Promise<CouncilConfig> {
   }
 
   return validateCouncilConfig(parsed);
+}
+
+/**
+ * Resolve the canonical on-disk path of a council's `council.yaml`
+ * (CORE-COMPONENT-0003). This is the single source of truth for where a council
+ * lives on disk: `council/<council>/council.yaml`, relative to `baseDir` (which
+ * defaults to `process.cwd()` and is injectable for hermetic tests).
+ *
+ * A defense-in-depth traversal guard — the refined variant shared with
+ * `council init`'s `resolveCouncilPaths` (CORE-COMPONENT-0006) — rejects only
+ * real escapes: an empty relative path, exactly `..`, or a relative path that
+ * starts with `..` followed by a path separator (`../` on POSIX, `..\` on
+ * Windows). A bare `startsWith("..")` would over-reject allowlisted names such
+ * as `..a` or `...` that resolve to a real directory strictly inside the
+ * council root. Escapes raise {@link ConfigError} (CORE-COMPONENT-0008) naming
+ * the offending `<council>` value. The function performs **no** filesystem IO.
+ */
+export function resolveCouncilConfigPath(council: string, baseDir: string = process.cwd()): string {
+  const councilBase = resolve(baseDir, "council");
+  const councilDir = resolve(councilBase, council);
+  const rel = relative(councilBase, councilDir);
+  if (rel.length === 0 || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) {
+    throw new ConfigError(
+      `Invalid council '${council}': resolves outside the council base directory`,
+    );
+  }
+  return join(councilDir, "council.yaml");
 }
