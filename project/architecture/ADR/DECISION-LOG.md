@@ -17,7 +17,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0005 | Logging and Observability | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-18 |
-| CORE-COMPONENT-0007 | Permission Policy | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0007 | Permission Policy | Adopted | 2026-06-20 |
 | CORE-COMPONENT-0008 | Error Handling | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0009 | Development Standards | Adopted | 2026-06-18 |
 
@@ -37,6 +37,9 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 8 | Key member sessions by stable "<councilId>/<memberId>" ids for resumability | CORE-COMPONENT-0004 | 2026-06-18 |
 | 9 | Emit line-delimited JSON structured logs through a shared logger | CORE-COMPONENT-0005 | 2026-06-18 |
 | 10 | Treat file-based transcript and artifacts as the council source of truth | CORE-COMPONENT-0006 | 2026-06-18 |
-| 11 | Default council members to read-only permissions | CORE-COMPONENT-0007 | 2026-06-18 |
+| 11 | Default council members to read-only and enforce it in live Copilot sessions | CORE-COMPONENT-0007 | 2026-06-20 |
 | 12 | Use a typed CouncilError hierarchy with stable error codes | CORE-COMPONENT-0008 | 2026-06-18 |
 | 13 | Enforce strict TypeScript, ESLint/Prettier, and vitest with >=80% coverage | CORE-COMPONENT-0009 | 2026-06-18 |
+| 14 | Build each member session's permission handler from createMemberPermissionPolicy, never approveAll | CORE-COMPONENT-0007 | 2026-06-20 |
+| 15 | Classify unknown, memory, MCP, tool, hook, and shell permission requests as writes (fail-closed) | CORE-COMPONENT-0007 | 2026-06-20 |
+| 16 | Exclude filesystem paths and secrets from permission feedback and decision logs | CORE-COMPONENT-0007 | 2026-06-20 |

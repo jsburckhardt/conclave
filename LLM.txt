@@ -41,6 +41,7 @@ src/commands/init.ts                                           — council init 
 src/config/council-config.ts                                   — council.yaml schema, loading, and validation
 src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
 src/runtime/copilot-session-factory.ts                         — Copilot SDK-backed session factory
+src/runtime/permission-handler.ts                              — SDK→policy permission mapping and fail-closed read-only handler
 src/logging/logger.ts                                          — Structured logger
 src/permissions/policy.ts                                      — Member permission policy
 src/store/transcript-store.ts                                  — Append-only transcript store

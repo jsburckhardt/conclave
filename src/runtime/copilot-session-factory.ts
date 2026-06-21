@@ -1,11 +1,9 @@
-import {
-  CopilotClient,
-  approveAll,
-  type CopilotSession,
-  type SessionConfig,
-} from "@github/copilot-sdk";
+import { CopilotClient, type CopilotSession, type SessionConfig } from "@github/copilot-sdk";
 import type { MemberConfig } from "../config/council-config.js";
+import type { Logger } from "../logging/logger.js";
+import { createLogger } from "../logging/logger.js";
 import type { MemberSession, SessionFactory } from "./council-runtime.js";
+import { createPermissionHandler } from "./permission-handler.js";
 import { SessionError } from "../errors.js";
 
 /**
@@ -15,9 +13,11 @@ import { SessionError } from "../errors.js";
  */
 export class CopilotSessionFactory implements SessionFactory {
   private readonly client: CopilotClient;
+  private readonly logger: Logger;
 
-  constructor(client?: CopilotClient) {
+  constructor(client?: CopilotClient, logger?: Logger) {
     this.client = client ?? new CopilotClient();
+    this.logger = logger ?? createLogger();
   }
 
   async start(): Promise<void> {
@@ -30,8 +30,9 @@ export class CopilotSessionFactory implements SessionFactory {
       workingDirectory: member.cwd,
       agent: member.agent,
       streaming: true,
-      // v0 keeps approval simple; read-only enforcement is layered on later.
-      onPermissionRequest: approveAll,
+      // Enforce the read-only policy on every live session via a fail-closed,
+      // single-sourced handler (CORE-COMPONENT-0007); never approveAll.
+      onPermissionRequest: createPermissionHandler(member, this.logger),
     };
     const session = await this.client.createSession(config);
     return new CopilotMemberSession(session);
