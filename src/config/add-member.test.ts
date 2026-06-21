@@ -491,10 +491,25 @@ describe("addMember", () => {
   });
 
   // Traversal guard reaches through addMember (E8) — escaping council rejected.
-  it("rejects an escaping <council> argument via addMember (TP-14)", async () => {
-    await expectConfigError(
-      addMember({ council: "../../etc", memberId: "m", cwd: ".", role: "r", baseDir }),
+  // Thread-1 fix: path resolution now happens INSIDE the try (after the entry
+  // log), so even an invalid / escaping <council> still emits the entry log and
+  // a council.add-member.failed record carrying the code (entry/success/failure
+  // logging contract, CORE-COMPONENT-0005).
+  it("rejects an escaping <council> via addMember and still logs entry + failure (TP-14)", async () => {
+    const { logger, records } = createCapturingLogger();
+    const err = await expectConfigError(
+      addMember({ council: "../../etc", memberId: "m", cwd: ".", role: "r", baseDir, logger }),
     );
+    expect(err.message).toContain("../../etc");
+
+    expect(records.filter((r) => r.message === "council.add-member")).toHaveLength(1);
+    const failed = records.filter((r) => r.message === "council.add-member.failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0].fields).toMatchObject({
+      council: "../../etc",
+      memberId: "m",
+      code: "CONFIG_ERROR",
+    });
   });
 });
 

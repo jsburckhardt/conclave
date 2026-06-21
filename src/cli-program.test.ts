@@ -127,4 +127,36 @@ describe("cli-program main", () => {
     expect(process.exitCode).toBe(1);
     expect(contRecords.some((r) => r.message === "council.continue")).toBe(true);
   });
+
+  // Thread-2/3 fix — exitOverride() stops Commander from calling process.exit(),
+  // and main() honors the CommanderError exitCode: --help/--version exit 0 with
+  // NO council.error log; a missing required option is handled in-process (the
+  // test survives, proving no process.exit) and exits non-zero with an error log.
+  it("honors Commander exit semantics: help/version exit 0, missing option exits non-zero", async () => {
+    // Commander writes help/version to stdout; suppress it for clean output.
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    // --help → exit 0, no council.error.
+    process.exitCode = 0;
+    const { logger: helpLogger, records: helpRecords } = createCapturingLogger();
+    await main(["node", "council", "--help"], { logger: helpLogger, baseDir });
+    expect(process.exitCode).toBe(0);
+    expect(helpRecords.some((r) => r.message === "council.error")).toBe(false);
+
+    // --version → exit 0, no council.error.
+    process.exitCode = 0;
+    const { logger: verLogger, records: verRecords } = createCapturingLogger();
+    await main(["node", "council", "--version"], { logger: verLogger, baseDir });
+    expect(process.exitCode).toBe(0);
+    expect(verRecords.some((r) => r.message === "council.error")).toBe(false);
+
+    // Missing required --cwd/--role → handled in-process, exits non-zero with a
+    // council.error log (the action never runs, so no add-member entry log).
+    process.exitCode = 0;
+    const { logger: missLogger, records: missRecords } = createCapturingLogger();
+    await main(["node", "council", "add-member", "demo", "bob"], { logger: missLogger, baseDir });
+    expect(process.exitCode).not.toBe(0);
+    expect(missRecords.some((r) => r.message === "council.error")).toBe(true);
+    expect(missRecords.some((r) => r.message === "council.add-member")).toBe(false);
+  });
 });

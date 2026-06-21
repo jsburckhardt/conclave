@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { dirname, relative, resolve } from "node:path";
-import { resolveCouncilConfigPath, validateCouncilConfig } from "./council-config.js";
+import {
+  resolveCouncilConfigPath,
+  validateCouncilConfig,
+  validateCouncilName,
+} from "./council-config.js";
 import { ConfigError } from "../errors.js";
 
 describe("validateCouncilConfig", () => {
@@ -87,6 +91,60 @@ describe("resolveCouncilConfigPath", () => {
       let thrown: unknown;
       try {
         resolveCouncilConfigPath(name, baseDir);
+      } catch (e) {
+        thrown = e;
+      }
+      expect(thrown).toBeInstanceOf(ConfigError);
+      expect((thrown as ConfigError).code).toBe("CONFIG_ERROR");
+      expect((thrown as ConfigError).message).toContain(name);
+    }
+  });
+
+  // Names containing path separators or that are dot-only are rejected *before*
+  // pathing (matching `council init`), so a `<council>` like `demo/../other`
+  // can never normalize to a different directory than the literal argument —
+  // these stay inside council/ and would slip past the resolve+relative guard
+  // alone. Regression for the reviewer's separator-normalization concern.
+  it("rejects separator/dot/charset-unsafe council names before pathing", () => {
+    for (const name of [
+      "demo/../other",
+      "demo/sub",
+      "a\\b",
+      "a b",
+      "a@b",
+      ".",
+      "..",
+      "   ",
+      "a\u0000b",
+    ]) {
+      let thrown: unknown;
+      try {
+        resolveCouncilConfigPath(name, baseDir);
+      } catch (e) {
+        thrown = e;
+      }
+      expect(thrown).toBeInstanceOf(ConfigError);
+      expect((thrown as ConfigError).code).toBe("CONFIG_ERROR");
+      expect((thrown as ConfigError).message).toContain(name);
+    }
+  });
+});
+
+describe("validateCouncilName", () => {
+  // Accepts allowlisted names, including dot-prefixed ones that stay inside the
+  // council root (parity with the resolver/init guard).
+  it("accepts allowlisted council names", () => {
+    for (const name of ["demo", "a1", "a.b_c-1", "Alice", "..a", "..."]) {
+      expect(() => validateCouncilName(name)).not.toThrow();
+    }
+  });
+
+  // Rejects each unsafe class with a ConfigError naming the offending value.
+  it("rejects empty/whitespace, separators, null bytes, '.'/'..', and non-allowlist", () => {
+    for (const name of ["", "   ", "a/b", "a\\b", "a\u0000b", ".", "..", "a b", "a@b"]) {
+      let thrown: unknown;
+      try {
+        validateCouncilName(name);
       } catch (e) {
         thrown = e;
       }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Adopted (amended 2026-06-21 — added the `resolveCouncilConfigPath` locator and the canonical on-disk council layout; see DECISION-LOG decisions #17–#19).
+Adopted (amended 2026-06-21 — added the `resolveCouncilConfigPath` locator and the canonical on-disk council layout; see DECISION-LOG decisions #17–#20).
 
 ## Purpose
 

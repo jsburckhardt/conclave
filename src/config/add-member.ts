@@ -184,11 +184,15 @@ export async function addMember(options: AddMemberOptions): Promise<void> {
   const { council, memberId } = options;
   const baseDir = options.baseDir ?? process.cwd();
   const logger = options.logger ?? createLogger();
-  const path = resolveCouncilConfigPath(council, baseDir);
 
   logger.info("council.add-member", { council, memberId });
 
   try {
+    // Resolve the path *inside* the try (after the entry log) so an invalid or
+    // traversal-escaping <council> rejected by resolveCouncilConfigPath is still
+    // recorded as council.add-member.failed, honoring the documented
+    // entry/success/failure logging contract (CORE-COMPONENT-0005).
+    const path = resolveCouncilConfigPath(council, baseDir);
     const member = validateMemberInput(options);
 
     let raw: string;

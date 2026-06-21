@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { scaffoldCouncil } from "./commands/init.js";
 import { addMember } from "./config/add-member.js";
 import { loadCouncilConfig } from "./config/council-config.js";
@@ -35,6 +35,13 @@ export function buildProgram(deps: CliDeps = {}): Command {
   const logger = deps.logger ?? createLogger();
   const baseDir = deps.baseDir;
   const program = new Command();
+
+  // Throw a CommanderError instead of calling process.exit() on parse failures,
+  // missing required options, and --help/--version. This keeps in-process tests
+  // (and any embedding of main()) alive so the catch in main() can map the
+  // outcome to process.exitCode (CORE-COMPONENT-0008). Set on the root; in
+  // Commander v15 it propagates to subcommands.
+  program.exitOverride();
 
   program
     .name("council")
@@ -102,16 +109,29 @@ export function buildProgram(deps: CliDeps = {}): Command {
 }
 
 /**
- * Parse `argv` and run the matched command. Any error thrown by an async action
- * is logged as `council.error` (including the `code` for typed
- * {@link CouncilError}s) and the process exit code is set to `1` — never
- * `process.exit`, so in-process tests survive (CORE-COMPONENT-0008).
+ * Parse `argv` and run the matched command. Errors thrown by an async action are
+ * logged as `council.error` (including the `code` for typed {@link CouncilError}s)
+ * and the exit code is set to `1`. With {@link Command.exitOverride} enabled,
+ * Commander surfaces parse failures, missing-option errors, and the normal
+ * `--help`/`--version` display as a {@link CommanderError} carrying an
+ * `exitCode`: that code is honored verbatim, and a `0` exit (help/version) is a
+ * success — neither logged as an error nor forced to `1`. The process exit code
+ * is only ever set, never `process.exit`, so in-process tests survive
+ * (CORE-COMPONENT-0008).
  */
 export async function main(argv: string[], deps: CliDeps = {}): Promise<void> {
   const logger = deps.logger ?? createLogger();
   try {
     await buildProgram({ ...deps, logger }).parseAsync(argv);
   } catch (error: unknown) {
+    if (error instanceof CommanderError) {
+      // exitCode 0 is the normal --help/--version display, not a failure.
+      if (error.exitCode !== 0) {
+        logger.error("council.error", { error: error.message, code: error.code });
+      }
+      process.exitCode = error.exitCode;
+      return;
+    }
     logger.error("council.error", {
       error: error instanceof Error ? error.message : String(error),
       ...(error instanceof CouncilError ? { code: error.code } : {}),
