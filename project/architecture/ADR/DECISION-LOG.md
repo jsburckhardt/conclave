@@ -14,11 +14,11 @@ This file is the single registry of all architectural decisions and core-compone
 |----|-------|--------|------|
 | CORE-COMPONENT-0002 | Commit Standards | Adopted | 2026-05-05 |
 | CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-18 |
-| CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0005 | Logging and Observability | Adopted | 2026-06-18 |
-| CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0007 | Permission Policy | Adopted | 2026-06-20 |
-| CORE-COMPONENT-0008 | Error Handling | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0008 | Error Handling | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0009 | Development Standards | Adopted | 2026-06-18 |
 
 ## Decisions
@@ -43,3 +43,12 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 14 | Build each member session's permission handler from createMemberPermissionPolicy, never approveAll | CORE-COMPONENT-0007 | 2026-06-20 |
 | 15 | Classify unknown, memory, MCP, tool, hook, and shell permission requests as writes (fail-closed) | CORE-COMPONENT-0007 | 2026-06-20 |
 | 16 | Exclude filesystem paths and secrets from permission feedback and decision logs | CORE-COMPONENT-0007 | 2026-06-20 |
+| 17 | Raise OrchestrationError (ORCHESTRATION_ERROR) for council phase-orchestration failures, preserving the cause | CORE-COMPONENT-0008 | 2026-06-21 |
+| 18 | Export OrchestrationError from src/index.ts with the rest of the CouncilError hierarchy | CORE-COMPONENT-0008 | 2026-06-21 |
+| 19 | Run fixed v0 council phases context→draft→validation→refinement→artifacts via CouncilRuntime.askMember | CORE-COMPONENT-0004 | 2026-06-21 |
+| 20 | Default orchestrator policy to writeArtifacts=true, requireProjectValidation=true, maxRounds=1 | CORE-COMPONENT-0004 | 2026-06-21 |
+| 21 | Resolve context and backlog roles by fail-closed heuristic to two distinct members, never hardcoded ids | CORE-COMPONENT-0004 | 2026-06-21 |
+| 22 | Validate maxRounds as a non-negative integer in the orchestrator, raising ConfigError otherwise | CORE-COMPONENT-0004 | 2026-06-21 |
+| 23 | Reject requireProjectValidation=true with maxRounds=0 as contradictory, raising OrchestrationError | CORE-COMPONENT-0004 | 2026-06-21 |
+| 24 | Append transcripts append-only and overwrite artifacts in place across council re-runs | CORE-COMPONENT-0006 | 2026-06-21 |
+| 25 | Wrap ArtifactStore.write failures in a typed OrchestrationError preserving the cause | CORE-COMPONENT-0006 | 2026-06-21 |

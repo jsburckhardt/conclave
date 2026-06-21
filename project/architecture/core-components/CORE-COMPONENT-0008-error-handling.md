@@ -18,18 +18,22 @@ Affects all modules that raise or handle errors (`src/errors.ts` and its consume
 - All domain errors extend `CouncilError`, which carries a stable string `code` and supports an optional `cause`.
 - Configuration failures raise `ConfigError` (`code: "CONFIG_ERROR"`).
 - Session/runtime failures raise `SessionError` (`code: "SESSION_ERROR"`).
-- Underlying errors are preserved via the standard `cause` option, never swallowed.
+- Council phase-orchestration failures raise `OrchestrationError` (`code: "ORCHESTRATION_ERROR"`).
+- Underlying errors are preserved via the standard `cause` option, never swallowed. Failures from non-typed throwers (e.g. `ArtifactStore.write`, which throws a plain `Error`) are wrapped in the most specific `CouncilError` subclass before propagating.
 - Error messages are human-actionable and name the offending entity (file, member, field).
 
 ### Interfaces
 - `class CouncilError extends Error { readonly code: string }`
 - `class ConfigError extends CouncilError`
 - `class SessionError extends CouncilError`
+- `class OrchestrationError extends CouncilError` (`code: "ORCHESTRATION_ERROR"`)
 - Constructors accept `(message, options?: { cause?: unknown })`.
 
 ### Expectations
+
 - New error categories extend `CouncilError` with a new stable `code`.
-- The CLI top-level handler logs `error` records and sets a non-zero exit code.
+- All `CouncilError` subclasses (including `OrchestrationError`) are exported from `src/index.ts`.
+- The CLI top-level handler logs `error` records and sets a non-zero exit code, including the `code` field when the error is a `CouncilError`.
 
 ## Rationale
 
@@ -52,6 +56,7 @@ try {
 ## Integration Guidelines
 
 - Throw the most specific `CouncilError` subclass; attach `cause` when wrapping a lower-level error.
+- Wrap failures from non-typed throwers (e.g. `ArtifactStore.write`) in `OrchestrationError`, preserving the original via `cause`.
 - Catch by `instanceof` and branch on `code`, not on message text.
 
 ## Exceptions
