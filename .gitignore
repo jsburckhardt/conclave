@@ -4,3 +4,8 @@ coverage/
 *.log
 .DS_Store
 .devcontainer/.tmux-shared
+
+# Council runtime scratch — never commit the per-run lock or atomic-write temp
+# files. Durable state.json IS committed (resume contract, CORE-COMPONENT-0006).
+council/**/.council.lock
+council/**/.*.tmp

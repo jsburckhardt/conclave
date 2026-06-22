@@ -1,6 +1,4 @@
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { isMap, isSeq, parseDocument, type Document } from "yaml";
 import { ConfigError, CouncilError } from "../errors.js";
 import {
@@ -9,6 +7,7 @@ import {
   type MemberConfig,
   type MemberTools,
 } from "./council-config.js";
+import { atomicWriteFile } from "../store/atomic-write.js";
 import { createLogger, type Logger } from "../logging/logger.js";
 
 /**
@@ -125,30 +124,6 @@ export function applyAddMember(doc: Document, member: MemberConfig): void {
   }
   node.tools = member.tools;
   members.add(node);
-}
-
-/**
- * Atomically replace `targetPath` with `content`: write a uniquely named temp
- * file in the **same directory** (so `rename` stays same-filesystem, avoiding
- * `EXDEV`), then `rename` it over the original. The unique name
- * (`.<base>.<pid>.<uuid>.tmp`) guarantees two concurrent writers can never share
- * a temp file. On any error the temp file is removed (best-effort) and the
- * original error re-thrown, so the target is left untouched. `fsync` is
- * intentionally omitted for v0 (POSIX dev-container assumption). Private,
- * single-use helper (not exported from `src/index.ts`).
- */
-async function atomicWriteFile(targetPath: string, content: string): Promise<void> {
-  const tempPath = join(
-    dirname(targetPath),
-    `.${basename(targetPath)}.${process.pid}.${randomUUID()}.tmp`,
-  );
-  try {
-    await writeFile(tempPath, content, "utf8");
-    await rename(tempPath, targetPath);
-  } catch (cause) {
-    await rm(tempPath, { force: true }).catch(() => undefined);
-    throw cause;
-  }
 }
 
 /** Map any thrown value to a {@link CouncilError}, preserving `code` + `cause`. */
