@@ -29,11 +29,27 @@ node dist/cli.js --help
 ## CLI (v0 surface)
 
 - `council init <name>` — scaffold a council directory and `council.yaml`
-- `council add-member <council> <memberId>` — add a member
+- `council add-member <council> <memberId> --cwd <path> --role <role> [--agent <agent>] [--tools read-only|read-write]` — add a validated member to an existing `council/<council>/council.yaml` (`--tools` defaults to `read-only`)
 - `council run <council>` — run council phases to produce artifacts
 - `council continue <council>` — resume a persisted council
 
 Commands currently report their plan; orchestration logic lands incrementally via the pipeline.
+
+## Limitations
+
+- **Single-writer council edits.** `council add-member` applies an atomic,
+  last-writer-wins edit to `council/<council>/council.yaml` (it writes to a
+  uniquely named temp file in the same directory, then `rename`s it over the
+  original). Concurrent writers therefore cannot corrupt or truncate the file
+  and never leave a stray temp file behind, but there is **no** cross-process
+  locking: if two `add-member` invocations race, one member may be silently
+  overwritten by the other. Run council edits from a single writer.
+- **`run`/`continue` config path reconciliation (follow-up).** `council run` and
+  `council continue` still default `--config` to a flat `council.yaml` in the
+  current directory, whereas `init` and `add-member` operate on
+  `council/<council>/council.yaml`. Reconciling these path conventions is
+  tracked as a follow-up and is out of scope for this change.
+
 
 ## Documentation
 

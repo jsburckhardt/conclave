@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 import { parse } from "yaml";
 import { ConfigError } from "../errors.js";
 
@@ -117,4 +118,74 @@ export async function loadCouncilConfig(path: string): Promise<CouncilConfig> {
   }
 
   return validateCouncilConfig(parsed);
+}
+
+/** Conservative ASCII allowlist for council names, shared with `council init`. */
+const COUNCIL_NAME_ALLOWLIST = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * Validate a council `name` (the user-visible `<council>` argument) before it is
+ * turned into an on-disk path. Rejects empty / whitespace-only names, null
+ * bytes, path separators (`/` or `\`), exactly `.`/`..`, and any name outside
+ * the conservative allowlist. This is the single source of truth for what a
+ * valid council identity is, shared by `council init` (CORE-COMPONENT-0006) and
+ * {@link resolveCouncilConfigPath} so both agree — without it, a `<council>`
+ * containing separators (e.g. `demo/../other`) would normalize to a *different*
+ * directory than the literal argument and silently read/write the wrong council.
+ * Each failure throws a {@link ConfigError} (CORE-COMPONENT-0008) naming the
+ * offending `name`. Performs **no** filesystem IO.
+ */
+export function validateCouncilName(name: string): void {
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new ConfigError(
+      `Invalid council name '${name}': a non-empty, non-whitespace name is required`,
+    );
+  }
+  if (name.includes("\u0000")) {
+    throw new ConfigError(`Invalid council name '${name}': name must not contain a null byte`);
+  }
+  if (name.includes("/") || name.includes("\\")) {
+    throw new ConfigError(
+      `Invalid council name '${name}': name must not contain a path separator ('/' or '\\')`,
+    );
+  }
+  if (name === "." || name === "..") {
+    throw new ConfigError(`Invalid council name '${name}': name must not be '.' or '..'`);
+  }
+  if (!COUNCIL_NAME_ALLOWLIST.test(name)) {
+    throw new ConfigError(
+      `Invalid council name '${name}': only letters, digits, '.', '_', and '-' are allowed`,
+    );
+  }
+}
+
+/**
+ * Resolve the canonical on-disk path of a council's `council.yaml`
+ * (CORE-COMPONENT-0003). This is the single source of truth for where a council
+ * lives on disk: `council/<council>/council.yaml`, relative to `baseDir` (which
+ * defaults to `process.cwd()` and is injectable for hermetic tests).
+ *
+ * The `<council>` argument is first validated with {@link validateCouncilName}
+ * (rejecting separators, `.`/`..`, null bytes, and non-allowlisted names) so it
+ * can never silently address a different directory than the literal argument.
+ * A defense-in-depth traversal guard then follows — the refined variant shared
+ * with `council init`'s `resolveCouncilPaths` (CORE-COMPONENT-0006) — rejecting
+ * only real escapes: an empty relative path, exactly `..`, or a relative path
+ * that starts with `..` followed by a path separator (`../` on POSIX, `..\` on
+ * Windows). A bare `startsWith("..")` would over-reject allowlisted names such
+ * as `..a` or `...` that resolve to a real directory strictly inside the
+ * council root. Escapes raise {@link ConfigError} (CORE-COMPONENT-0008) naming
+ * the offending `<council>` value. The function performs **no** filesystem IO.
+ */
+export function resolveCouncilConfigPath(council: string, baseDir: string = process.cwd()): string {
+  validateCouncilName(council);
+  const councilBase = resolve(baseDir, "council");
+  const councilDir = resolve(councilBase, council);
+  const rel = relative(councilBase, councilDir);
+  if (rel.length === 0 || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) {
+    throw new ConfigError(
+      `Invalid council '${council}': resolves outside the council base directory`,
+    );
+  }
+  return join(councilDir, "council.yaml");
 }

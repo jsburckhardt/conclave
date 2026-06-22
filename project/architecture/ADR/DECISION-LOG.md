@@ -13,7 +13,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ID | Title | Status | Date |
 |----|-------|--------|------|
 | CORE-COMPONENT-0002 | Commit Standards | Adopted | 2026-05-05 |
-| CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-18 |
+| CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-21 |
 | CORE-COMPONENT-0005 | Logging and Observability | Adopted | 2026-06-18 |
 | CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-21 |
@@ -52,3 +52,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 23 | Reject requireProjectValidation=true with maxRounds=0 as contradictory, raising OrchestrationError | CORE-COMPONENT-0004 | 2026-06-21 |
 | 24 | Append transcripts append-only and overwrite artifacts in place across council re-runs | CORE-COMPONENT-0006 | 2026-06-21 |
 | 25 | Wrap ArtifactStore.write failures in a typed OrchestrationError preserving the cause | CORE-COMPONENT-0006 | 2026-06-21 |
+| 26 | Resolve every council's `council.yaml` path only through `resolveCouncilConfigPath(council, baseDir?)` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 27 | Standardize the on-disk council layout as `council/<council>/council.yaml` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 28 | Reject `<council>` path arguments that escape the council root with a traversal-guarded `ConfigError` | CORE-COMPONENT-0003 | 2026-06-21 |
+| 29 | Persist the edited YAML document (comments, key order, unknown keys), never the normalized validator output | CORE-COMPONENT-0003 | 2026-06-21 |

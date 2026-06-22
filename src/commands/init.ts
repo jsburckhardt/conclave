@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { ConfigError } from "../errors.js";
+import { validateCouncilName } from "../config/council-config.js";
 import { createLogger, type Logger } from "../logging/logger.js";
 
 /**
@@ -27,39 +28,6 @@ export interface ScaffoldCouncilResult {
    * identical whether or not `council/` already existed.
    */
   created: string[];
-}
-
-/** Conservative ASCII allowlist for council names (CORE-COMPONENT-0008, Q6). */
-const NAME_ALLOWLIST = /^[A-Za-z0-9._-]+$/;
-
-/**
- * Validate a council `name` before any filesystem access. Rejects empty /
- * whitespace-only names, `.`/`..`, path separators, null bytes, and any name
- * outside the conservative allowlist. Each failure throws a {@link ConfigError}
- * naming the offending `name` (CORE-COMPONENT-0008).
- */
-function validateName(name: string): void {
-  if (typeof name !== "string" || name.trim().length === 0) {
-    throw new ConfigError(
-      `Invalid council name '${name}': a non-empty, non-whitespace name is required`,
-    );
-  }
-  if (name.includes("\u0000")) {
-    throw new ConfigError(`Invalid council name '${name}': name must not contain a null byte`);
-  }
-  if (name.includes("/") || name.includes("\\")) {
-    throw new ConfigError(
-      `Invalid council name '${name}': name must not contain a path separator ('/' or '\\')`,
-    );
-  }
-  if (name === "." || name === "..") {
-    throw new ConfigError(`Invalid council name '${name}': name must not be '.' or '..'`);
-  }
-  if (!NAME_ALLOWLIST.test(name)) {
-    throw new ConfigError(
-      `Invalid council name '${name}': only letters, digits, '.', '_', and '-' are allowed`,
-    );
-  }
 }
 
 /**
@@ -163,7 +131,7 @@ export async function scaffoldCouncil(
   const baseDir = options.baseDir ?? process.cwd();
   const logger = options.logger ?? createLogger();
 
-  validateName(name);
+  validateCouncilName(name);
   const { councilBase, councilDir } = resolveCouncilPaths(baseDir, name);
 
   // Ensure the shared council/ base exists (mkdir-p); not tracked in `created`.
