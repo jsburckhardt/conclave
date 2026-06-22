@@ -14,11 +14,11 @@ This file is the single registry of all architectural decisions and core-compone
 |----|-------|--------|------|
 | CORE-COMPONENT-0002 | Commit Standards | Adopted | 2026-05-05 |
 | CORE-COMPONENT-0003 | Configuration | Adopted | 2026-06-21 |
-| CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-21 |
+| CORE-COMPONENT-0004 | Session Lifecycle and Persistence | Adopted | 2026-06-22 |
 | CORE-COMPONENT-0005 | Logging and Observability | Adopted | 2026-06-18 |
-| CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-21 |
+| CORE-COMPONENT-0006 | Artifact and Transcript Store | Adopted | 2026-06-22 |
 | CORE-COMPONENT-0007 | Permission Policy | Adopted | 2026-06-20 |
-| CORE-COMPONENT-0008 | Error Handling | Adopted | 2026-06-21 |
+| CORE-COMPONENT-0008 | Error Handling | Adopted | 2026-06-22 |
 | CORE-COMPONENT-0009 | Development Standards | Adopted | 2026-06-18 |
 
 ## Decisions
@@ -56,3 +56,12 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 27 | Standardize the on-disk council layout as `council/<council>/council.yaml` | CORE-COMPONENT-0003 | 2026-06-21 |
 | 28 | Reject `<council>` path arguments that escape the council root with a traversal-guarded `ConfigError` | CORE-COMPONENT-0003 | 2026-06-21 |
 | 29 | Persist the edited YAML document (comments, key order, unknown keys), never the normalized validator output | CORE-COMPONENT-0003 | 2026-06-21 |
+| 30 | Raise StateError (STATE_ERROR) for missing, corrupt, incompatible, or lock-conflicted council run state | CORE-COMPONENT-0008 | 2026-06-22 |
+| 31 | Export StateError from src/index.ts with the rest of the CouncilError hierarchy | CORE-COMPONENT-0008 | 2026-06-22 |
+| 32 | Persist resumable run state to council/<council>/state.json via an atomic CouncilStateStore write | CORE-COMPONENT-0006 | 2026-06-22 |
+| 33 | Treat state.json as authoritative council run state alongside transcript and artifacts | CORE-COMPONENT-0006 | 2026-06-22 |
+| 34 | Validate state.json schemaVersion on read; never treat a missing or corrupt state as empty | CORE-COMPONENT-0006 | 2026-06-22 |
+| 35 | Guard concurrent run/continue with an exclusive council/<council>/.council.lock, overridable by --force | CORE-COMPONENT-0006 | 2026-06-22 |
+| 36 | Resume councils by re-invoking runBacklogCouncil with persisted state, keeping phases out of CouncilRuntime | CORE-COMPONENT-0004 | 2026-06-22 |
+| 37 | Recreate resumed sessions via the stable "<councilId>/<memberId>" id path through SessionFactory | CORE-COMPONENT-0004 | 2026-06-22 |
+| 38 | Continue the phase/round flow from persisted lastPhase/lastRound, re-checkpointing after each step | CORE-COMPONENT-0004 | 2026-06-22 |

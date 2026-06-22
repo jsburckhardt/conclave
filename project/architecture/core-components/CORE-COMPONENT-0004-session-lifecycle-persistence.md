@@ -2,7 +2,7 @@
 
 ## Status
 
-Adopted
+Adopted (amended 2026-06-22 — documented the `council continue` resume contract; see DECISION-LOG decisions #36–#38)
 
 ## Purpose
 
@@ -29,13 +29,22 @@ Affects the runtime layer (`src/runtime/`). Boundaries: this component owns sess
 - Every phase response must be non-blank after `trim()`; a blank or whitespace-only response raises `OrchestrationError` and no artifact is written.
 - `runtime.stop()` runs in a `finally` on every path (success or failure); a `stop()` failure is logged separately and never masks the original error.
 
+**Resume (`council continue`)**
+
+- Resuming a council re-invokes `runBacklogCouncil` with the persisted `CouncilState` (CORE-COMPONENT-0006); the phase/round model is **not** redefined and no `CouncilRuntime.resume()` method is added — phase knowledge stays out of the runtime.
+- `CouncilRuntime.start()` recreates one session per member through `SessionFactory.createSession(member, councilId)`, reusing the identical stable `"<councilId>/<memberId>"` ids; resume re-derives these ids from `councilId`/`memberId` and treats any stored `sessionId` only as a cross-check (never trusted blindly).
+- Resume continues from the persisted `lastPhase`/`lastRound`, seeding intermediate products (`summary`/`backlog`/`validation`) from the state's `products` checkpoint, and re-checkpoints after each completed phase/round via an injected callback.
+- Resuming an already-`completed` council is an idempotent no-op; a failed SDK session resume raises `SessionError` and leaves the persisted state intact so the run stays retryable.
+- The on-disk council directory and `councilId` are resolved canonically via `resolveCouncilConfigPath(<council>)` (CORE-COMPONENT-0003); `run` and `continue` enforce `config.name === <council> === state.councilId` before resuming.
+
 ### Interfaces
 - `interface SessionFactory { start(); createSession(member, councilId); stop(); }`
 - `interface MemberSession { sendAndWait(prompt: string): Promise<string>; }`
 - `class CouncilRuntime` — `start()`, `askMember(id, prompt)`, `stop()`.
 - `class CopilotSessionFactory implements SessionFactory`.
-- `runBacklogCouncil(runtime, config, { artifacts, logger? }): Promise<BacklogCouncilResult>` — the fixed v0 phase orchestrator (`src/runtime/council-phases.ts`).
+- `runBacklogCouncil(runtime, config, { artifacts, logger?, resume?, checkpoint? }): Promise<BacklogCouncilResult>` — the fixed v0 phase orchestrator (`src/runtime/council-phases.ts`); `resume` seeds a start point from persisted state and `checkpoint` persists progress after each phase/round.
 - `normalizePolicy(policy?): NormalizedPolicy` — pure policy validation/normalization (applies defaults and the `maxRounds`/contradiction checks).
+- `runCouncil(options)` / `continueCouncil(options)` (`src/commands/`) — thin, testable command functions that own path/identity resolution, the state store, the concurrency lock, and the runtime lifecycle for `council run` / `council continue`.
 
 ### Expectations
 - `start()` creates all member sessions before any `askMember` call.
