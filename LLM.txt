@@ -36,9 +36,12 @@ package.json                                                   — Node/TypeScri
 tsconfig.json                                                  — TypeScript compiler configuration (strict, NodeNext)
 .github/soft-factory/verification.yml                          — Verification commands (test, lint, build, format, typecheck)
 src/cli.ts                                                     — `council` CLI entry shim → delegates to cli-program
-src/cli-program.ts                                             — `council` commander program (buildProgram/main); add-member wiring
+src/cli-program.ts                                             — `council` commander program (buildProgram/main); init/add-member/run/continue wiring (run & continue accept --force)
 src/index.ts                                                   — Public package exports
 src/commands/init.ts                                           — council init scaffolder (scaffoldCouncil)
+src/commands/run.ts                                            — `council run` producer (runCouncil): runs phases + writes/checkpoints state.json under a .council.lock
+src/commands/continue.ts                                       — `council continue` resume (continueCouncil): reads state.json, validates drift/identity, resumes phases under a .council.lock
+src/commands/shared.ts                                         — Shared run/continue helpers (loadConfigWithRaw, sessionIdFor, memberRegistry, assertCouncilIdentity, toCouncilError)
 src/config/council-config.ts                                   — council.yaml schema, loading, and validation
 src/config/add-member.ts                                       — council add-member edit module (validate, applyAddMember, addMember)
 src/runtime/council-runtime.ts                                 — Council orchestration runtime (SessionFactory abstraction)
@@ -49,4 +52,7 @@ src/logging/logger.ts                                          — Structured lo
 src/permissions/policy.ts                                      — Member permission policy
 src/store/transcript-store.ts                                  — Append-only transcript store
 src/store/artifact-store.ts                                    — Artifact writer
-src/errors.ts                                                  — Typed error hierarchy (CouncilError, ConfigError, SessionError, OrchestrationError)
+src/store/atomic-write.ts                                      — Shared atomic temp-file + rename writer (atomicWriteFile)
+src/store/council-state-store.ts                               — Durable run-state store (CouncilStateStore, CouncilState); schema-validating read, atomic write of council/<slug>/state.json
+src/store/council-lock.ts                                      — Concurrency lock (CouncilLock, atomic wx) + councilConfigHash (sha256 of council.yaml bytes)
+src/errors.ts                                                  — Typed error hierarchy (CouncilError, ConfigError, SessionError, OrchestrationError, StateError)
