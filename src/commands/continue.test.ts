@@ -523,4 +523,104 @@ describe("continueCouncil resume orchestration", () => {
     expect(finalState.status).toBe("completed");
     expect(existsSync(join(councilDir, ".council.lock"))).toBe(false);
   });
+
+  // --- Thread #4: `--config` override must stay inside the council directory ---
+
+  it("rejects an absolute --config outside the council dir (no read, no sessions)", async () => {
+    const baseDir = await makeBaseDir();
+    await seedCouncil(baseDir, { state: validState() });
+    const rec = recordingFactory();
+    const { logger } = recordingLogger();
+
+    const err = await continueCouncil({
+      council: "demo",
+      config: "/etc/passwd",
+      baseDir,
+      logger,
+      sessionFactory: rec.factory,
+    }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ConfigError);
+    expect((err as Error).message).toMatch(/--config/);
+    expect(rec.created).toHaveLength(0);
+  });
+
+  it("rejects a relative --config that escapes the council dir", async () => {
+    const baseDir = await makeBaseDir();
+    await seedCouncil(baseDir, { state: validState() });
+    const rec = recordingFactory();
+    const { logger } = recordingLogger();
+
+    const err = await continueCouncil({
+      council: "demo",
+      config: "../../secret.yaml",
+      baseDir,
+      logger,
+      sessionFactory: rec.factory,
+    }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ConfigError);
+    expect((err as Error).message).toMatch(/outside the council directory/i);
+    expect(rec.created).toHaveLength(0);
+  });
+
+  it("accepts a relative --config inside the council dir", async () => {
+    const baseDir = await makeBaseDir();
+    const councilDir = await seedCouncil(baseDir, { state: validState() });
+    // An alternate config file that lives INSIDE the council directory.
+    await writeFile(join(councilDir, "alt.yaml"), stringify(councilConfig()), "utf8");
+    const rec = recordingFactory();
+    const { logger } = recordingLogger();
+
+    await continueCouncil({
+      council: "demo",
+      config: "alt.yaml",
+      baseDir,
+      logger,
+      sessionFactory: rec.factory,
+    });
+
+    // Resume proceeded using the in-dir config (sessions were created).
+    expect(rec.created.map((c) => c.memberId)).toEqual(["proj", "scrum"]);
+  });
+
+  // --- Thread #6: drift detection is set-based, robust to duplicate member ids ---
+
+  it("detects member-set drift even when config carries duplicate ids", async () => {
+    const baseDir = await makeBaseDir();
+    // Config has a DUPLICATE id ("proj" twice) → its real member SET is {proj},
+    // which differs from the persisted SET {proj, scrum}. The pre-fix
+    // length-as-set-size proxy treated these as equal and skipped drift.
+    const dupConfig = councilConfig({
+      members: [
+        {
+          id: "proj",
+          cwd: ".",
+          role: "Source of truth for the target project",
+          tools: "read-only",
+        },
+        {
+          id: "proj",
+          cwd: ".",
+          role: "Source of truth for the target project",
+          tools: "read-only",
+        },
+      ],
+    });
+    await seedCouncil(baseDir, { yaml: stringify(dupConfig), state: validState() });
+    const rec = recordingFactory();
+    const { logger } = recordingLogger();
+
+    const err = await continueCouncil({
+      council: "demo",
+      baseDir,
+      logger,
+      sessionFactory: rec.factory,
+    }).catch((e: unknown) => e);
+
+    // Without --force, the genuinely-different member set must abort.
+    expect(err).toBeInstanceOf(ConfigError);
+    expect((err as Error).message).toMatch(/member set/i);
+    expect(rec.created).toHaveLength(0);
+  });
 });

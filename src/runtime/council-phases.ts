@@ -453,7 +453,10 @@ export async function runBacklogCouncil(
       recordPhase("validation");
       await emitCheckpoint("validation", round, { backlog, validation });
     } else if (validationAlreadyDone) {
-      validation = seeded.validation;
+      // Resuming into the round whose validation already completed: the feedback
+      // MUST be present in the persisted products, otherwise refinement would run
+      // without it and diverge from the original run. Fail closed (review thread #1).
+      validation = requireSeed(seeded.validation, "validation");
     } else {
       logger.info("phase.validation.skipped", { round: round + 1 });
     }

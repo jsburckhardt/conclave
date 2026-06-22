@@ -21,6 +21,7 @@ import {
   assertCouncilIdentity,
   loadConfigWithRaw,
   memberRegistry,
+  resolveConfigPath,
   sessionIdFor,
   toCouncilError,
 } from "./shared.js";
@@ -46,13 +47,25 @@ export interface ContinueCouncilOptions {
   sessionFactory?: SessionFactory;
 }
 
-/** True when the two id collections differ as sets (order-insensitive). */
+/**
+ * True when the two id collections differ as **sets** (order- and
+ * duplicate-insensitive). Compares distinct-id sets rather than using length as a
+ * proxy for set size, so a config carrying duplicate ids (e.g. `["a","a"]`) cannot
+ * masquerade as a different member set (e.g. `["a","b"]`) and weaken drift
+ * protection (review thread #6).
+ */
 function memberSetDiffers(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) {
+  const aSet = new Set(a);
+  const bSet = new Set(b);
+  if (aSet.size !== bSet.size) {
     return true;
   }
-  const bSet = new Set(b);
-  return a.some((id) => !bSet.has(id));
+  for (const id of aSet) {
+    if (!bSet.has(id)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -88,7 +101,8 @@ export async function continueCouncil(options: ContinueCouncilOptions): Promise<
     // Canonical council dir (slug-validated + traversal-guarded, E8).
     const canonicalConfigPath = resolveCouncilConfigPath(council, baseDir);
     const councilDir = dirname(canonicalConfigPath);
-    const configPath = options.config ?? canonicalConfigPath;
+    // A `--config` override must stay inside the council dir (review thread #4).
+    const configPath = resolveConfigPath(councilDir, canonicalConfigPath, options.config);
 
     const { config, raw } = await loadConfigWithRaw(configPath);
     assertCouncilIdentity(config, council);

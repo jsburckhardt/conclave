@@ -70,7 +70,10 @@ export class CouncilLock {
           { cause },
         );
       }
-      throw cause;
+      // Any non-EEXIST failure (EACCES, ENOSPC, …) is still a run-state failure;
+      // surface it as a typed StateError carrying a stable code and the original
+      // cause (review thread #2) rather than leaking an untyped exception.
+      throw new StateError(`Failed to acquire council lock at ${this.filePath}`, { cause });
     }
   }
 

@@ -177,4 +177,25 @@ describe("CouncilStateStore", () => {
     expect(back.products).toBeUndefined();
     expect(back.lastPhase).toBeNull();
   });
+
+  // Thread #3: write failures are normalized to a typed StateError naming the file.
+  it("surfaces a filesystem write failure as a StateError", async () => {
+    const dir = await makeDir();
+    const path = statePath(dir); // <dir>/council/demo/state.json
+    // Make the parent ('demo') a FILE so `mkdir -p` of the parent — and thus the
+    // write — fails (ENOTDIR/EEXIST) instead of succeeding.
+    await mkdir(join(dir, "council"), { recursive: true });
+    await writeFile(join(dir, "council", "demo"), "i am a file, not a dir", "utf8");
+    const store = new CouncilStateStore(path);
+
+    const err = await store.write(validState()).then(
+      () => {
+        throw new Error("expected write() to reject");
+      },
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(StateError);
+    expect((err as StateError).code).toBe("STATE_ERROR");
+    expect((err as Error).message).toContain("Unable to write state file");
+  });
 });

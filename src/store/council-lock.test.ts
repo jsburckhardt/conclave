@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CouncilLock, councilConfigHash } from "./council-lock.js";
 import { CouncilLock as RootLock, councilConfigHash as rootHash } from "../index.js";
 import { StateError } from "../errors.js";
@@ -77,6 +77,32 @@ describe("CouncilLock", () => {
     await a.acquire();
     expect(await exists(lockPath)).toBe(true);
     await a.release();
+  });
+
+  // Thread #2: a non-EEXIST acquire failure is surfaced as a typed StateError.
+  it("wraps an unexpected (non-EEXIST) acquire failure in StateError", async () => {
+    const lockPath = await makeLockPath();
+    const lockDir = dirname(lockPath);
+    await mkdir(lockDir, { recursive: true });
+    // Make the lock's directory read-only so the `wx` create fails with EACCES
+    // (a non-EEXIST error), exercising the typed-wrap branch.
+    await chmod(lockDir, 0o555);
+
+    try {
+      const lock = new CouncilLock(lockPath);
+      const err = await lock.acquire().then(
+        () => {
+          throw new Error("expected acquire() to reject");
+        },
+        (e: unknown) => e,
+      );
+      expect(err).toBeInstanceOf(StateError);
+      expect((err as StateError).code).toBe("STATE_ERROR");
+      expect((err as Error).message).toContain("Failed to acquire council lock");
+    } finally {
+      // Restore write permission so afterEach cleanup can remove the temp dir.
+      await chmod(lockDir, 0o755);
+    }
   });
 });
 

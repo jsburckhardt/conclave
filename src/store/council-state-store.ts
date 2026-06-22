@@ -206,8 +206,15 @@ export class CouncilStateStore {
    * reader can never observe a partially written `state.json`.
    */
   async write(state: CouncilState): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    await atomicWriteFile(this.filePath, `${JSON.stringify(state, null, 2)}\n`);
+    try {
+      await mkdir(dirname(this.filePath), { recursive: true });
+      await atomicWriteFile(this.filePath, `${JSON.stringify(state, null, 2)}\n`);
+    } catch (cause) {
+      // Normalize raw fs/atomic-write failures (EACCES, ENOSPC, …) to a typed
+      // StateError naming the file, mirroring read() so run-state persistence
+      // errors are consistently typed (review thread #3).
+      throw new StateError(`Unable to write state file ${this.filePath}`, { cause });
+    }
   }
 
   /**

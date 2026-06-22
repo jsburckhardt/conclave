@@ -871,4 +871,26 @@ describe("runBacklogCouncil resume + checkpoint", () => {
     expect(result.rounds).toBe(1);
     expect(result.artifacts).toHaveLength(3);
   });
+
+  it("resume from 'validation' WITHOUT products.validation fails closed (thread #1)", async () => {
+    const config = fullPolicyConfig();
+    // lastPhase is 'validation' but the validation product is absent (e.g. a
+    // hand-edited or partially-written state.json that still passes the schema).
+    // Refinement must NOT silently run without the feedback — fail closed.
+    const resume: ResumePoint = {
+      lastPhase: "validation",
+      lastRound: 0,
+      products: { backlog: "# B" },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+
+    const err = await runBacklogCouncil(runtime, config, { artifacts, logger, resume }).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(OrchestrationError);
+    expect((err as Error).message).toMatch(/validation/);
+    // It fails before issuing any ask (no refinement without the feedback).
+    expect(calls).toHaveLength(0);
+  });
 });

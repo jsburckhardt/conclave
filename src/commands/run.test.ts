@@ -7,7 +7,7 @@ import { stringify } from "yaml";
 import { runCouncil } from "./run.js";
 import { CouncilStateStore, type CouncilState } from "../store/council-state-store.js";
 import { type MemberSession, type SessionFactory } from "../runtime/council-runtime.js";
-import { ConfigError } from "../errors.js";
+import { ConfigError, CouncilError } from "../errors.js";
 import type { CouncilConfig } from "../config/council-config.js";
 import type { LogFields, Logger } from "../logging/logger.js";
 
@@ -260,6 +260,34 @@ describe("runCouncil producer (TP-24)", () => {
       await readFile(join(councilDir, "state.json"), "utf8"),
     ) as CouncilState;
     expect(finalState.status).toBe("completed");
+    expect(existsSync(join(councilDir, ".council.lock"))).toBe(false);
+  });
+
+  // Thread #5: an unexpected non-CouncilError is normalized to a typed CouncilError.
+  it("maps an unexpected throwable to a CouncilError and logs council.run.failed", async () => {
+    const baseDir = await makeBaseDir();
+    const councilDir = await seedCouncil(baseDir, { yaml: stringify(councilConfig()) });
+    // A member throws a plain (non-CouncilError) Error mid-run.
+    const rec = recordingFactory(() => {
+      throw new Error("transcript exploded");
+    });
+    const { logger, records } = recordingLogger();
+
+    const err = await runCouncil({
+      council: "demo",
+      baseDir,
+      logger,
+      sessionFactory: rec.factory,
+    }).catch((e: unknown) => e);
+
+    // Normalized to a typed CouncilError carrying a stable code.
+    expect(err).toBeInstanceOf(CouncilError);
+    expect((err as CouncilError).code).toBe("CONFIG_ERROR");
+    expect(records.find((r) => r.message === "council.run.failed")?.fields).toMatchObject({
+      council: "demo",
+      code: "CONFIG_ERROR",
+    });
+    // The lock is still released on the failure path.
     expect(existsSync(join(councilDir, ".council.lock"))).toBe(false);
   });
 });

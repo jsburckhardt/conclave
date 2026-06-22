@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { relative, resolve } from "node:path";
 import { parse } from "yaml";
 import { ConfigError, CouncilError } from "../errors.js";
 import { validateCouncilConfig, type CouncilConfig } from "../config/council-config.js";
@@ -28,6 +29,37 @@ export async function loadConfigWithRaw(
   }
 
   return { config: validateCouncilConfig(parsed), raw };
+}
+
+/**
+ * Resolve the effective `council.yaml` path for `continue`, honoring an optional
+ * `-c/--config` override while keeping it **inside** the resolved council
+ * directory (CORE-COMPONENT-0003, Q3). With no override the canonical
+ * `council/<slug>/council.yaml` is used. An override (relative or absolute) is
+ * resolved against `councilDir` and must not escape it: a `../` segment or an
+ * absolute path that lands outside raises {@link ConfigError}
+ * (CORE-COMPONENT-0008). An absolute path that already points inside the council
+ * directory is accepted. This closes the traversal hole where `--config
+ * ../../x` or `--config /etc/x` could read a file outside the council directory,
+ * matching the guard in {@link resolveCouncilConfigPath}.
+ */
+export function resolveConfigPath(
+  councilDir: string,
+  canonicalConfigPath: string,
+  configOverride?: string,
+): string {
+  if (configOverride === undefined) {
+    return canonicalConfigPath;
+  }
+  const resolved = resolve(councilDir, configOverride);
+  const rel = relative(councilDir, resolved);
+  if (rel.length === 0 || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) {
+    throw new ConfigError(
+      `Invalid --config '${configOverride}': resolves outside the council directory ` +
+        `'${councilDir}'.`,
+    );
+  }
+  return resolved;
 }
 
 /** The stable session id convention `"<councilId>/<memberId>"` (CORE-COMPONENT-0004). */
