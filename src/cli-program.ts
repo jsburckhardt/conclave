@@ -1,15 +1,10 @@
 import { Command, CommanderError } from "commander";
-import { join } from "node:path";
 import { scaffoldCouncil } from "./commands/init.js";
 import { addMember } from "./config/add-member.js";
-import { loadCouncilConfig } from "./config/council-config.js";
+import { runCouncil } from "./commands/run.js";
+import { continueCouncil } from "./commands/continue.js";
 import { CouncilError } from "./errors.js";
 import { createLogger, type Logger } from "./logging/logger.js";
-import { TranscriptStore } from "./store/transcript-store.js";
-import { ArtifactStore } from "./store/artifact-store.js";
-import { CouncilRuntime } from "./runtime/council-runtime.js";
-import { CopilotSessionFactory } from "./runtime/copilot-session-factory.js";
-import { runBacklogCouncil, normalizePolicy, resolveRoles } from "./runtime/council-phases.js";
 
 /**
  * Injectable dependencies for the in-process CLI program. Both are optional so
@@ -24,18 +19,12 @@ export interface CliDeps {
   baseDir?: string;
 }
 
-/** Human-facing not-yet-implemented notice (CORE-COMPONENT-0005 exception). */
-function notImplemented(command: string): void {
-  process.stderr.write(`'council ${command}' is not implemented yet (see project backlog)\n`);
-  process.exitCode = 1;
-}
-
 /**
  * Build the `council` commander program with all four subcommands wired. The
- * `add-member` action is a thin adapter that delegates entirely to
- * {@link addMember} (no edit/IO logic lives here); `init`/`run`/`continue`
- * preserve their existing behavior. Lives in a covered module so CLI behavior
- * is unit-testable in-process via {@link main} (research R6).
+ * `add-member`/`run`/`continue` actions are thin adapters that delegate entirely
+ * to their command modules (no IO/orchestration logic lives here); `init`
+ * preserves its existing behavior. Lives in a covered module so CLI behavior is
+ * unit-testable in-process via {@link main} (research R6).
  */
 export function buildProgram(deps: CliDeps = {}): Command {
   const logger = deps.logger ?? createLogger();
@@ -95,63 +84,26 @@ export function buildProgram(deps: CliDeps = {}): Command {
     .command("run")
     .description("Run the council phases to produce artifacts")
     .argument("<council>", "council name")
-    .option("-c, --config <path>", "path to council.yaml", "council.yaml")
-    .action(async (council: string, options: { config: string }) => {
-      const config = await loadCouncilConfig(options.config);
-      logger.info("council.run", { council, members: config.members.length, goal: config.goal });
-
-      // Fail fast on contradictory policy / unresolvable roles BEFORE starting the
-      // runtime, so invalid config surfaces as an actionable typed error without the
-      // cost and side effects of creating real member sessions. These pure checks are
-      // idempotent; runBacklogCouncil re-validates to stay self-contained.
-      normalizePolicy(config.orchestrator.policy);
-      resolveRoles(config);
-
-      // Q9: durable paths key on config.name (consistent with runtime session ids).
-      const base = join("council", config.name);
-      const transcript = new TranscriptStore(join(base, "transcript", "full.md"));
-      const artifacts = new ArtifactStore(base);
-      const runtime = new CouncilRuntime({
-        config,
-        sessionFactory: new CopilotSessionFactory(),
-        transcript,
-        artifacts,
-        logger,
-      });
-
-      try {
-        await runtime.start();
-        const result = await runBacklogCouncil(runtime, config, { artifacts, logger });
-        logger.info("council.run.complete", {
-          council: config.name,
-          context: result.contextMemberId,
-          backlog: result.backlogMemberId,
-          phases: result.phases,
-          rounds: result.rounds,
-          artifacts: result.artifacts.length,
-          validationSkipped: result.validationSkipped,
-          artifactsSkipped: result.artifactsSkipped,
-        });
-      } finally {
-        // stop() runs on every path; its failure is logged separately and must
-        // never mask the primary error (CORE-COMPONENT-0004).
-        try {
-          await runtime.stop();
-        } catch (stopErr) {
-          logger.error("council.stop.error", {
-            message: stopErr instanceof Error ? stopErr.message : String(stopErr),
-          });
-        }
-      }
+    .option("-c, --config <path>", "path to council.yaml")
+    .option("--force", "clear a stale .council.lock before running")
+    .action(async (council: string, options: { config?: string; force?: boolean }) => {
+      await runCouncil({ council, config: options.config, force: options.force, baseDir, logger });
     });
 
   program
     .command("continue")
     .description("Resume a previously persisted council")
     .argument("<council>", "council name")
-    .action((council: string) => {
-      logger.info("council.continue", { council });
-      notImplemented("continue");
+    .option("-c, --config <path>", "path to council.yaml")
+    .option("--force", "clear a stale .council.lock and override member-set drift")
+    .action(async (council: string, options: { config?: string; force?: boolean }) => {
+      await continueCouncil({
+        council,
+        config: options.config,
+        force: options.force,
+        baseDir,
+        logger,
+      });
     });
 
   return program;

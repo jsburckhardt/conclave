@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { CouncilError, ConfigError, SessionError, OrchestrationError } from "./errors.js";
-import { OrchestrationError as RootOrchestrationError } from "./index.js";
+import {
+  CouncilError,
+  ConfigError,
+  SessionError,
+  OrchestrationError,
+  StateError,
+} from "./errors.js";
+import {
+  OrchestrationError as RootOrchestrationError,
+  StateError as RootStateError,
+} from "./index.js";
 
 describe("errors", () => {
   it("CouncilError carries a code and is an Error", () => {
@@ -41,5 +50,27 @@ describe("errors", () => {
   it("OrchestrationError resolves from the package root with the same class identity", () => {
     expect(RootOrchestrationError).toBe(OrchestrationError);
     expect(new RootOrchestrationError("x")).toBeInstanceOf(CouncilError);
+  });
+
+  // TP-01: StateError shape and export.
+  it("TP-01: StateError carries the STATE_ERROR code, name, cause, and hierarchy", () => {
+    const cause = new Error("io");
+    const err = new StateError("boom", { cause });
+    expect(err.code).toBe("STATE_ERROR");
+    expect(err.name).toBe("StateError");
+    expect(err.cause).toBe(cause);
+    expect(err).toBeInstanceOf(CouncilError);
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it("TP-01: StateError constructs without a cause", () => {
+    const err = new StateError("boom");
+    expect(err.code).toBe("STATE_ERROR");
+    expect(err.cause).toBeUndefined();
+  });
+
+  it("TP-01: StateError resolves from the package root with the same class identity", () => {
+    expect(RootStateError).toBe(StateError);
+    expect(new RootStateError("x")).toBeInstanceOf(CouncilError);
   });
 });

@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import type { CouncilRuntime } from "./council-runtime.js";
 import type { CouncilConfig, MemberConfig, OrchestratorPolicy } from "../config/council-config.js";
 import type { ArtifactStore } from "../store/artifact-store.js";
+import type { CouncilPhase, CouncilStateProducts } from "../store/council-state-store.js";
 import { createLogger, type Logger } from "../logging/logger.js";
 import { ConfigError, OrchestrationError } from "../errors.js";
 
@@ -31,6 +32,36 @@ export interface RunBacklogCouncilOptions {
   artifacts: ArtifactStore;
   /** CORE-COMPONENT-0005 logger; defaults to {@link createLogger}. */
   logger?: Logger;
+  /**
+   * Resume start point seeded from a persisted `CouncilState` (CORE-COMPONENT-0004).
+   * When present, completed phases are skipped and intermediate `products` are
+   * seeded so the flow continues from `lastPhase`/`lastRound`. When absent the run
+   * starts fresh (byte-identical to the pre-resume behavior).
+   */
+  resume?: ResumePoint;
+  /**
+   * Persist progress after each completed phase/round. The orchestrator owns only
+   * phases/rounds/products; the caller merges the checkpoint into the full state
+   * (identity, status, timestamps) and writes it through `CouncilStateStore`.
+   */
+  checkpoint?: (checkpoint: PhaseCheckpoint) => Promise<void>;
+}
+
+/** Where a resumed run continues from (derived from the persisted state). */
+export interface ResumePoint {
+  /** The last phase that completed (`null` ⇒ context never finished ⇒ start fresh). */
+  lastPhase: CouncilPhase | null;
+  /** Number of fully-completed refinement rounds. */
+  lastRound: number;
+  /** Durable intermediate products carried into the resumed flow. */
+  products: CouncilStateProducts;
+}
+
+/** A progress checkpoint emitted after each completed phase/round. */
+export interface PhaseCheckpoint {
+  lastPhase: CouncilPhase;
+  lastRound: number;
+  products: CouncilStateProducts;
 }
 
 /** Result of a completed backlog-council run (no prompt/response bodies). */
@@ -289,8 +320,30 @@ async function writeArtifact(
 }
 
 /**
+ * Require a durable resume product to be present. A resumed run that skips a phase
+ * but lacks the product that phase produced is an inconsistent state; surface it as
+ * an actionable {@link OrchestrationError} rather than feeding `undefined` downstream.
+ */
+function requireSeed(value: string | undefined, name: string): string {
+  if (value === undefined) {
+    throw new OrchestrationError(
+      `Cannot resume council: the persisted state is missing the '${name}' product ` +
+        "required to continue from this phase.",
+    );
+  }
+  return value;
+}
+
+/**
  * Run the fixed v0 backlog council. `runtime` must already be started; the caller
  * owns `runtime.stop()` (in a guarded `finally`, CORE-COMPONENT-0004).
+ *
+ * Resume (CORE-COMPONENT-0004): when `options.resume` is provided the orchestrator
+ * skips already-completed phases, seeds intermediate products from the persisted
+ * checkpoint, and continues from `lastPhase`/`lastRound`. When `options.checkpoint`
+ * is provided it fires after each completed phase/round with the minimal `products`
+ * needed to resume from that boundary. With neither option the behavior is identical
+ * to a fresh, non-checkpointed run.
  */
 export async function runBacklogCouncil(
   runtime: CouncilRuntime,
@@ -313,56 +366,123 @@ export async function runBacklogCouncil(
     }
   };
 
+  // Resume start point (absent ⇒ fresh run from the context phase).
+  const resume = options.resume;
+  const resumeLastPhase = resume?.lastPhase ?? null;
+  const completedRounds = resume?.lastRound ?? 0;
+  const seeded = resume?.products ?? {};
+  const contextDone = resumeLastPhase !== null;
+  const draftDone =
+    resumeLastPhase === "draft" ||
+    resumeLastPhase === "validation" ||
+    resumeLastPhase === "refinement" ||
+    resumeLastPhase === "artifacts";
+  const artifactsDone = resumeLastPhase === "artifacts";
+
+  const emitCheckpoint = async (
+    lastPhase: CouncilPhase,
+    lastRound: number,
+    products: CouncilStateProducts,
+  ): Promise<void> => {
+    if (options.checkpoint) {
+      await options.checkpoint({ lastPhase, lastRound, products });
+    }
+  };
+
+  // Record phases already completed in a prior run so `phases` reflects the
+  // council's full journey, not just this (possibly resumed) invocation.
+  if (resume) {
+    if (contextDone) {
+      recordPhase("context");
+    }
+    if (draftDone) {
+      recordPhase("draft");
+    }
+    if (
+      policy.requireProjectValidation &&
+      (completedRounds > 0 || resumeLastPhase === "validation")
+    ) {
+      recordPhase("validation");
+    }
+    if (completedRounds > 0) {
+      recordPhase("refinement");
+    }
+  }
+
   // Phase: context summary.
-  logger.info("phase.context.start", { member: contextMemberId });
-  const summary = await askNonBlank(
-    runtime,
-    contextMemberId,
-    contextPrompt(config.goal),
-    "context",
-  );
-  recordPhase("context");
+  let summary = seeded.summary;
+  if (!contextDone) {
+    logger.info("phase.context.start", { member: contextMemberId });
+    summary = await askNonBlank(runtime, contextMemberId, contextPrompt(config.goal), "context");
+    recordPhase("context");
+    await emitCheckpoint("context", completedRounds, { summary });
+  }
 
   // Phase: backlog draft.
-  logger.info("phase.draft.start", { member: backlogMemberId });
-  let working = await askNonBlank(runtime, backlogMemberId, draftPrompt(summary), "draft");
-  recordPhase("draft");
+  let working = seeded.backlog;
+  if (!draftDone) {
+    logger.info("phase.draft.start", { member: backlogMemberId });
+    working = await askNonBlank(
+      runtime,
+      backlogMemberId,
+      draftPrompt(requireSeed(summary, "summary")),
+      "draft",
+    );
+    recordPhase("draft");
+    await emitCheckpoint("draft", completedRounds, { backlog: working });
+  }
+
+  // From here the backlog must exist (freshly drafted or seeded from state).
+  let backlog = requireSeed(working, "backlog");
 
   // Phase: optional validation + refinement rounds.
   const validationSkipped = !policy.requireProjectValidation;
-  let rounds = 0;
-  for (let round = 0; round < policy.maxRounds; round++) {
+  let rounds = completedRounds;
+  for (let round = completedRounds; round < policy.maxRounds; round++) {
     let validation: string | undefined;
-    if (policy.requireProjectValidation) {
+    // The round we resume into may have its validation already done.
+    const validationAlreadyDone = round === completedRounds && resumeLastPhase === "validation";
+    if (policy.requireProjectValidation && !validationAlreadyDone) {
       logger.info("phase.validation.start", { member: contextMemberId, round: round + 1 });
       validation = await askNonBlank(
         runtime,
         contextMemberId,
-        validationPrompt(working),
+        validationPrompt(backlog),
         "validation",
       );
       recordPhase("validation");
+      await emitCheckpoint("validation", round, { backlog, validation });
+    } else if (validationAlreadyDone) {
+      // Resuming into the round whose validation already completed: the feedback
+      // MUST be present in the persisted products, otherwise refinement would run
+      // without it and diverge from the original run. Fail closed (review thread #1).
+      validation = requireSeed(seeded.validation, "validation");
     } else {
       logger.info("phase.validation.skipped", { round: round + 1 });
     }
 
     logger.info("phase.refinement.start", { member: backlogMemberId, round: round + 1 });
-    working = await askNonBlank(
+    backlog = await askNonBlank(
       runtime,
       backlogMemberId,
-      refinementPrompt(working, validation),
+      refinementPrompt(backlog, validation),
       "refinement",
     );
     recordPhase("refinement");
-    rounds++;
+    rounds = round + 1;
+    await emitCheckpoint("refinement", rounds, { backlog });
   }
 
-  const finalBacklog = working;
+  const finalBacklog = backlog;
 
   // Phase: optional artifact generation (gated by writeArtifacts).
   const artifacts: string[] = [];
   let artifactsSkipped = false;
-  if (policy.writeArtifacts) {
+  if (artifactsDone) {
+    // Artifacts were written in a prior run (resume past the artifacts phase);
+    // re-running is unnecessary. Record the phase so the journey stays complete.
+    recordPhase("artifacts");
+  } else if (policy.writeArtifacts) {
     logger.info("phase.artifacts.start", { member: backlogMemberId });
 
     artifacts.push(
@@ -391,6 +511,7 @@ export async function runBacklogCouncil(
     );
 
     recordPhase("artifacts");
+    await emitCheckpoint("artifacts", rounds, { backlog: finalBacklog });
     logger.info("phase.artifacts.written", { count: artifacts.length });
   } else {
     artifactsSkipped = true;

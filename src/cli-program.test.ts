@@ -48,7 +48,7 @@ describe("cli-program main", () => {
   beforeEach(async () => {
     baseDir = await mkdtemp(join(tmpdir(), "council-cli-"));
     process.exitCode = 0;
-    // notImplemented() writes plain text to stderr; suppress for clean output.
+    // Suppress any stderr noise (e.g. Commander parse diagnostics) for clean output.
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
   });
 
@@ -99,8 +99,11 @@ describe("cli-program main", () => {
     expect(cfg.members.some((m) => m.id === "bob")).toBe(true);
   });
 
-  // TP-19 — init/run/continue still behave correctly through the moved actions.
-  it("init/run/continue behave correctly through main (TP-19)", async () => {
+  // TP-25 — init/run/continue behave correctly through the moved/wired actions:
+  // continue now delegates to continueCouncil (no not-implemented stub), failing
+  // with STATE_ERROR when there is no prior run; the traversal guard rejects an
+  // escaping <council>; and `--force` parses without a Commander error.
+  it("init/run/continue behave correctly through main (TP-25)", async () => {
     // init scaffolds council/smoke/ and exits 0.
     process.exitCode = 0;
     const { logger: initLogger, records: initRecords } = createCapturingLogger();
@@ -122,12 +125,45 @@ describe("cli-program main", () => {
     expect(process.exitCode).toBe(1);
     expect(runRecords.some((r) => r.message === "council.run")).toBe(true);
 
-    // continue logs council.continue, then reports not-implemented (exit 1).
+    // continue delegates to continueCouncil: 'smoke' was never successfully run, so
+    // there is no state.json → StateError. main() logs council.continue (entry),
+    // council.continue.failed { STATE_ERROR }, and council.error { STATE_ERROR },
+    // then exits 1 — NOT the old not-implemented notice.
     process.exitCode = 0;
     const { logger: contLogger, records: contRecords } = createCapturingLogger();
     await main(["node", "council", "continue", "smoke"], { logger: contLogger, baseDir });
     expect(process.exitCode).toBe(1);
     expect(contRecords.some((r) => r.message === "council.continue")).toBe(true);
+    expect(contRecords.find((r) => r.message === "council.continue.failed")?.fields).toMatchObject({
+      council: "smoke",
+      code: "STATE_ERROR",
+    });
+    expect(contRecords.find((r) => r.message === "council.error")?.fields).toMatchObject({
+      code: "STATE_ERROR",
+    });
+
+    // continue with a traversal-escaping <council> is rejected by the path guard
+    // (ConfigError) before any resume work, exit 1.
+    process.exitCode = 0;
+    const { logger: escLogger, records: escRecords } = createCapturingLogger();
+    await main(["node", "council", "continue", "../escape"], { logger: escLogger, baseDir });
+    expect(process.exitCode).toBe(1);
+    expect(escRecords.find((r) => r.message === "council.error")?.fields).toMatchObject({
+      code: "CONFIG_ERROR",
+    });
+
+    // `--force` is a recognized flag: it parses without a Commander error (it still
+    // fails STATE_ERROR for the un-run 'smoke', proving the flag reached the action).
+    process.exitCode = 0;
+    const { logger: forceLogger, records: forceRecords } = createCapturingLogger();
+    await main(["node", "council", "continue", "smoke", "--force"], {
+      logger: forceLogger,
+      baseDir,
+    });
+    expect(forceRecords.some((r) => r.message === "council.continue")).toBe(true);
+    expect(forceRecords.find((r) => r.message === "council.error")?.fields).toMatchObject({
+      code: "STATE_ERROR",
+    });
   });
 
   // Thread-2/3 fix — exitOverride() stops Commander from calling process.exit(),

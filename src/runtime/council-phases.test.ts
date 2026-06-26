@@ -14,6 +14,8 @@ import {
   resolveRoles,
   runBacklogCouncil,
   validationPrompt,
+  type PhaseCheckpoint,
+  type ResumePoint,
 } from "./council-phases.js";
 import { CouncilRuntime, type MemberSession, type SessionFactory } from "./council-runtime.js";
 import { TranscriptStore } from "../store/transcript-store.js";
@@ -739,5 +741,156 @@ describe("runBacklogCouncil", () => {
     expect(caught).toBeInstanceOf(OrchestrationError);
     expect((caught as Error).message).toBe("primary");
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+});
+
+// --- TASK-05: resume + checkpoint (TP-10..TP-13) ------------------------------
+
+describe("runBacklogCouncil resume + checkpoint", () => {
+  const fullPolicyConfig = (): CouncilConfig =>
+    councilConfig({
+      orchestrator: {
+        cwd: ".",
+        policy: { maxRounds: 1, requireProjectValidation: true, writeArtifacts: true },
+      },
+    });
+
+  it("TP-10: checkpoints after each completed phase/round with the correct payload", async () => {
+    const config = fullPolicyConfig();
+    const { runtime, artifacts, logger } = await harness(config, defaultScript);
+    await runtime.start();
+
+    const cps: PhaseCheckpoint[] = [];
+    const checkpoint = async (cp: PhaseCheckpoint): Promise<void> => {
+      cps.push(structuredClone(cp));
+    };
+    await runBacklogCouncil(runtime, config, { artifacts, logger, checkpoint });
+
+    expect(cps).toEqual([
+      { lastPhase: "context", lastRound: 0, products: { summary: "summary" } },
+      { lastPhase: "draft", lastRound: 0, products: { backlog: "draft" } },
+      {
+        lastPhase: "validation",
+        lastRound: 0,
+        products: { backlog: "draft", validation: "validation" },
+      },
+      { lastPhase: "refinement", lastRound: 1, products: { backlog: "refined" } },
+      { lastPhase: "artifacts", lastRound: 1, products: { backlog: "refined" } },
+    ]);
+  });
+
+  it("TP-10: with no checkpoint, behaves identically (regression)", async () => {
+    const config = fullPolicyConfig();
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+    const result = await runBacklogCouncil(runtime, config, { artifacts, logger });
+    expect(result.phases).toEqual(["context", "draft", "validation", "refinement", "artifacts"]);
+    expect(result.rounds).toBe(1);
+    expect(calls.map((c) => c.memberId)).toEqual([
+      "proj",
+      "scrum",
+      "proj",
+      "scrum",
+      "scrum",
+      "scrum",
+    ]);
+  });
+
+  it("TP-11: resume from 'draft' skips context + draft (seeds from products.backlog)", async () => {
+    const config = fullPolicyConfig();
+    const seededBacklog = "# Backlog\n- S1";
+    const resume: ResumePoint = {
+      lastPhase: "draft",
+      lastRound: 0,
+      products: { backlog: seededBacklog },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+    const result = await runBacklogCouncil(runtime, config, { artifacts, logger, resume });
+
+    // First ask is validation (the next step after draft), seeded from the backlog.
+    expect(calls[0]).toEqual({ memberId: "proj", prompt: validationPrompt(seededBacklog) });
+    const prompts = calls.map((c) => c.prompt);
+    expect(prompts).not.toContain(contextPrompt(config.goal));
+    expect(prompts.some((p) => p.includes("create an initial backlog"))).toBe(false);
+    // The full journey is still reported on completion.
+    expect(result.phases).toEqual(["context", "draft", "validation", "refinement", "artifacts"]);
+    expect(result.rounds).toBe(1);
+  });
+
+  it("TP-12: resume from 'context' runs draft onward seeded from products.summary", async () => {
+    const config = fullPolicyConfig();
+    const resume: ResumePoint = {
+      lastPhase: "context",
+      lastRound: 0,
+      products: { summary: "PROJECT SUMMARY" },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+    await runBacklogCouncil(runtime, config, { artifacts, logger, resume });
+
+    expect(calls[0]).toEqual({ memberId: "scrum", prompt: draftPrompt("PROJECT SUMMARY") });
+    expect(calls.map((c) => c.prompt)).not.toContain(contextPrompt(config.goal));
+  });
+
+  it("TP-13: resume from 'validation' resumes mid-round at refinement", async () => {
+    const config = fullPolicyConfig();
+    const resume: ResumePoint = {
+      lastPhase: "validation",
+      lastRound: 0,
+      products: { backlog: "# B", validation: "VALIDATION FEEDBACK" },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+    await runBacklogCouncil(runtime, config, { artifacts, logger, resume });
+
+    // The round's validation is NOT re-asked; refinement is first, seeded from validation.
+    expect(calls[0]).toEqual({
+      memberId: "scrum",
+      prompt: refinementPrompt("# B", "VALIDATION FEEDBACK"),
+    });
+    expect(calls.map((c) => c.prompt)).not.toContain(validationPrompt("# B"));
+  });
+
+  it("resume from 'refinement' at maxRounds leaves only the artifacts phase", async () => {
+    const config = fullPolicyConfig();
+    const resume: ResumePoint = {
+      lastPhase: "refinement",
+      lastRound: 1,
+      products: { backlog: "# Final" },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+    const result = await runBacklogCouncil(runtime, config, { artifacts, logger, resume });
+
+    // No validation/refinement asks remain; only epics + open-questions for artifacts.
+    expect(calls.map((c) => c.prompt)).toEqual([
+      epicsPrompt("# Final"),
+      openQuestionsPrompt("# Final"),
+    ]);
+    expect(result.rounds).toBe(1);
+    expect(result.artifacts).toHaveLength(3);
+  });
+
+  it("resume from 'validation' WITHOUT products.validation fails closed (thread #1)", async () => {
+    const config = fullPolicyConfig();
+    // lastPhase is 'validation' but the validation product is absent (e.g. a
+    // hand-edited or partially-written state.json that still passes the schema).
+    // Refinement must NOT silently run without the feedback — fail closed.
+    const resume: ResumePoint = {
+      lastPhase: "validation",
+      lastRound: 0,
+      products: { backlog: "# B" },
+    };
+    const { runtime, artifacts, logger, calls } = await harness(config, defaultScript);
+    await runtime.start();
+
+    const err = await runBacklogCouncil(runtime, config, { artifacts, logger, resume }).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(OrchestrationError);
+    expect((err as Error).message).toMatch(/validation/);
+    // It fails before issuing any ask (no refinement without the feedback).
+    expect(calls).toHaveLength(0);
   });
 });
